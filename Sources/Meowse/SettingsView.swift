@@ -34,7 +34,7 @@ struct GeneralTab: View {
                 LabeledContent("Scroll engine") {
                     switch store.engineStatus {
                     case .active:
-                        EngineActivity(idle: store.scrollDevice == .touch)
+                        EngineActivity(idle: store.scrollDevice == .touch, surface: store.touchKind)
                     case .failed:
                         Label("Couldn’t start", systemImage: "exclamationmark.triangle.fill").foregroundStyle(.orange)
                     case .off:
@@ -98,6 +98,7 @@ struct ScrollingTab: View {
                     SliderRow("Scroll distance", value: $store.settings.notchDistance, range: Settings.notchDistanceRange, format: "%.0f pt")
                     SliderRow("Smoothness", value: $store.settings.glideTime, range: Settings.glideTimeRange, format: "%.2f s")
                     Toggle("Trackpad-style momentum", isOn: $store.settings.trackpadPhases)
+                        .help("Glides rubber-band at the ends of pages, like a trackpad. Once you've scrolled with a trackpad or Magic Mouse, Meowse uses it anyway, because Finder otherwise stops taking the wheel.")
                 }
                 .disabled(!store.settings.smooth)
             }
@@ -212,10 +213,10 @@ struct UpdatesTab: View {
                 }
             }
 
-            if case .available(let version, let notes) = updater.state {
+            if let version = updater.availableVersion {
                 Section("Meowse \(version)") {
-                    if !notes.isEmpty {
-                        Text(Self.markdown(notes))
+                    if !updater.availableNotes.isEmpty {
+                        Text(Self.markdown(updater.availableNotes))
                             .font(.callout)
                             .lineLimit(10)
                             .textSelection(.enabled)
@@ -227,6 +228,7 @@ struct UpdatesTab: View {
                         Spacer()
                         Button("Install and Relaunch") { updater.install() }
                             .keyboardShortcut(.defaultAction)
+                            .disabled(updater.state == .installing)
                     }
                 }
             }
@@ -240,10 +242,16 @@ struct UpdatesTab: View {
         .settingsTab()
     }
 
-    /// Release notes are Markdown; render bold, italics, code and links, keeping line breaks.
+    /// Release notes are Markdown; render bold, italics, code and links, keeping
+    /// line breaks. Notes are shown before the update is verified, so only web
+    /// links stay clickable.
     private static func markdown(_ text: String) -> AttributedString {
         let options = AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace)
-        return (try? AttributedString(markdown: text, options: options)) ?? AttributedString(text)
+        guard var notes = try? AttributedString(markdown: text, options: options) else { return AttributedString(text) }
+        for run in notes.runs where run.link != nil && run.link?.scheme?.lowercased() != "https" {
+            notes[run.range].link = nil
+        }
+        return notes
     }
 
     @ViewBuilder private var status: some View {
@@ -270,16 +278,18 @@ struct UpdatesTab: View {
 /// does, since those are smooth on their own.
 private struct EngineActivity: View {
     let idle: Bool
+    let surface: TouchKind?
 
     var body: some View {
+        let title = idle ? surface.map { "Idle (\($0.name))" } ?? "Idle" : "Running"
         Label {
-            Text(idle ? "Idle" : "Running")
+            Text(title)
         } icon: {
             Image(systemName: idle ? "moon.zzz.fill" : "checkmark.circle.fill")
                 .contentTransition(.symbolEffect(.replace))
         }
         .foregroundStyle(idle ? Color.secondary : Color.green)
-        .animation(.smooth, value: idle)
+        .animation(.smooth, value: title)
         .help(idle ? "Trackpads and the Magic Mouse scroll smoothly on their own. Meowse takes over when you scroll a mouse wheel."
                    : "Smooths mouse wheel scrolling.")
     }

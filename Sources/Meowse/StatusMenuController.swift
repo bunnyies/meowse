@@ -59,11 +59,16 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         }
     }
 
-    /// Badged while Keep Awake or Wiggle is on; dimmed while scrolling is unavailable.
+    /// Badged while Keep Awake or Wiggle is on. Dimmed while scrolling is
+    /// paused or unavailable, and while it's idle because a trackpad or Magic
+    /// Mouse is scrolling.
     func updateIcon() {
         guard let button = statusItem?.button else { return }
-        button.image = (awake.isAwake || awake.isWiggling) ? badgedIcon : plainIcon
-        button.appearsDisabled = !trusted || !store.settings.enabled || engineStatus == .failed
+        let image = (awake.isAwake || awake.isWiggling) ? badgedIcon : plainIcon
+        let idle = engineStatus == .active && store.scrollDevice == .touch
+        let dimmed = !trusted || !store.settings.enabled || engineStatus == .failed || idle
+        if button.image !== image { button.image = image }
+        if button.appearsDisabled != dimmed { button.appearsDisabled = dimmed }
     }
 
     // MARK: - Building
@@ -121,7 +126,10 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
 
         menu.addItem(.separator())
         menu.addItem(item("Settings…", "gearshape", #selector(settingsClicked), key: ","))
-        updateItem = item("Check for Updates…", "arrow.down.circle", #selector(updatesClicked))
+        // Shown only once an update has been found.
+        updateItem = item("Update Meowse…", "arrow.down.circle", #selector(updatesClicked))
+        updateItem.badge = NSMenuItemBadge(string: "New")
+        updateItem.isHidden = true
         menu.addItem(updateItem)
         let quit = NSMenuItem(title: "Quit Meowse", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         quit.image = NSImage(systemSymbolName: "power", accessibilityDescription: nil)
@@ -169,13 +177,9 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         }
         allowDisplaySleepItem.state = s.awakeAllowDisplaySleep ? .on : .off
 
-        if let version = updater.availableVersion {
-            updateItem.title = "Update to Meowse \(version)…"
-            updateItem.badge = NSMenuItemBadge(string: "New")
-        } else {
-            updateItem.title = "Check for Updates…"
-            updateItem.badge = nil
-        }
+        let update = updater.availableVersion
+        updateItem.isHidden = update == nil
+        if let update { updateItem.title = "Update to Meowse \(update)…" }
 
         wiggleItem.state = awake.isWiggling ? .on : .off
         setSubtitle(wiggleItem, base: "Wiggle Cursor", "When idle for \(Awake.intervalLabel(s.wiggleInterval).lowercased())")

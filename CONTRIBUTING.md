@@ -12,9 +12,11 @@ change that adds idle work or system-wide cost needs a very good reason.
    coalesce wakeups.
 2. **Idle is zero.** With the menu closed and no glide in progress, the app
    uses 0% CPU and has no idle wakeups. Check with `scripts/measure.sh`.
-3. **One event tap.** Its mask is built from the current settings, and it
-   doesn't exist when nothing needs it. Modifier hotkeys are read from event
-   flags, so the tap never receives keyboard events.
+3. **One active event tap.** Its mask is built from the current settings, and
+   it doesn't exist when nothing needs it. Modifier hotkeys are read from event
+   flags, so the tap never receives keyboard events. Stop-on-click listens
+   through a second, listen-only tap that's enabled only while a glide is in
+   flight, so clicks never wait for Meowse.
 4. **Keep the event path lean.** Scroll handling and frame posting run on the
    engine thread (`Engine.swift`) without locks, allocation or main-thread
    work. Classify events and return early. Every synthetic event costs the

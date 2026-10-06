@@ -8,6 +8,12 @@ public enum Hotkey: Codable, Hashable, Sendable {
     /// CGEvent mouse button number (2 = middle, 3 = back, 4 = forward, ...).
     case mouseButton(Int)
 
+    /// Buttons beyond the left and right ones, which the tap can track.
+    public var isValid: Bool {
+        if case .mouseButton(let n) = self { return (2..<32).contains(n) }
+        return true
+    }
+
     public var needsMouseButtonEvents: Bool {
         if case .mouseButton = self { return true }
         return false

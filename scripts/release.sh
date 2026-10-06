@@ -37,6 +37,9 @@ BUILD=$(( $(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" $PLIST) + 1 ))
 if (( PUBLISH )) && [[ -n $(git status --porcelain) ]]; then
   echo "Commit or stash your changes first."; exit 1
 fi
+if (( PUBLISH )) && [[ $(git branch --show-current) != main ]]; then
+  echo "Publish from main; --publish pushes the current branch to the public repository."; exit 1
+fi
 
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" -c "Set :CFBundleVersion $BUILD" $PLIST
 echo "Version $CURRENT → $VERSION (build $BUILD)"

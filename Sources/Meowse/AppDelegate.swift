@@ -23,20 +23,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         store.onChange = { [weak self] new, old in self?.settingsChanged(new, old) }
         awake.onChange = { [weak self] in self?.statusMenu.updateIcon() }
         statusMenu.openSettings = { [weak self] in self?.showSettings() }
-        statusMenu.openUpdates = { [weak self] in
-            guard let self else { return }
-            if self.updater.availableVersion == nil { self.updater.check(userInitiated: true) }
-            self.showSettings(tab: .updates)
-        }
+        statusMenu.openUpdates = { [weak self] in self?.showSettings(tab: .updates) }
         statusMenu.requestPermission = { [weak self] in self?.requestPermission() }
         statusMenu.willOpen = { [weak self] in self?.refreshTrust(prompt: false) }
         statusMenu.retryEngine = { [weak self] in self?.engine.revalidate() }
         engine.onStatusChange = { [weak self] status in
             self?.store.engineStatus = status
             self?.statusMenu.engineStatus = status
-            if status != .active { self?.store.scrollDevice = nil }
+            if status != .active { self?.store.setScrollDevice(nil) }
         }
-        engine.onDeviceChange = { [weak self] device in self?.store.scrollDevice = device }
+        engine.onDeviceChange = { [weak self] device, sender in
+            self?.store.setScrollDevice(device, touch: device == .touch ? TouchKind(registryID: sender) : nil)
+            self?.statusMenu.updateIcon()
+        }
         statusMenu.setVisible(store.settings.showMenuBarIcon)
 
         observeSystem()

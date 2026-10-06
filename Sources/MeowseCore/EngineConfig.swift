@@ -19,7 +19,8 @@ public struct EngineConfig: Equatable, Sendable {
     public var fasterFactor: Double
     public var stopOnClick: Bool
 
-    /// Events the tap must receive; 0 means no tap is needed.
+    /// Events the tap must receive; 0 means no tap is needed. Clicks that
+    /// stop a glide come from a separate tap that's on only mid-glide.
     public let eventMask: CGEventMask
 
     public init(_ s: Settings) {
@@ -41,20 +42,19 @@ public struct EngineConfig: Equatable, Sendable {
         eventMask = EngineConfig.mask(
             smooth: smooth,
             reverse: reverseVertical || reverseHorizontal,
-            stopOnClick: s.stopOnClick,
             hotkeys: [s.fasterKey, s.sidewaysKey, s.unsmoothedKey]
         )
     }
 
+    /// Whether a click should stop a glide in flight.
+    public var stopsOnClick: Bool { smooth && stopOnClick }
+
     /// The smallest mask that serves the configuration. Keyboard events are
     /// never needed: modifier hotkeys come from the wheel event's flags.
-    static func mask(smooth: Bool, reverse: Bool, stopOnClick: Bool, hotkeys: [Hotkey]) -> CGEventMask {
+    static func mask(smooth: Bool, reverse: Bool, hotkeys: [Hotkey]) -> CGEventMask {
         guard smooth || reverse else { return 0 }
         func bit(_ t: CGEventType) -> CGEventMask { 1 << CGEventMask(t.rawValue) }
         var mask = bit(.scrollWheel)
-        if smooth && stopOnClick {
-            mask |= bit(.leftMouseDown)
-        }
         if hotkeys.contains(where: { $0.needsMouseButtonEvents }) {
             mask |= bit(.otherMouseDown) | bit(.otherMouseUp)
         }

@@ -46,12 +46,12 @@ final class Updater: ObservableObject {
         lastChecked = UserDefaults.standard.object(forKey: Self.lastCheckedKey) as? Date
     }
 
-    var availableVersion: String? {
-        if case .available(let version, _) = state { return version }
-        return nil
-    }
+    /// The update found by the last successful check. It stays offered when a
+    /// later check or the install fails.
+    var availableVersion: String? { release?.version?.description }
+    var availableNotes: String { release?.notes ?? "" }
 
-    var releasePage: URL? { release?.page }
+    var releasePage: URL? { release.map(\.page).flatMap { $0.scheme == "https" ? $0 : nil } }
 
     // MARK: - Scheduling
 
@@ -238,7 +238,11 @@ final class Updater: ObservableObject {
             throw UpdateError.unsignedBuild
         }
 
+        // Signed with Developer ID and notarized, as every release is. A build
+        // signed for development, or one Apple hasn't checked, is refused.
         let rule = "anchor apple generic and identifier \"\(bundleID)\" and certificate leaf[subject.OU] = \"\(team)\""
+            + " and certificate 1[field.1.2.840.113635.100.6.2.6] and certificate leaf[field.1.2.840.113635.100.6.1.13]"
+            + " and notarized"
         var requirement: SecRequirement?
         var code: SecStaticCode?
         guard SecRequirementCreateWithString(rule as CFString, [], &requirement) == errSecSuccess,

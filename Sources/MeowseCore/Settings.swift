@@ -80,6 +80,10 @@ public struct Settings: Codable, Equatable, Sendable {
         s.fasterFactor = s.fasterFactor.clamped(to: Self.fasterFactorRange)
         s.awakeDuration = s.awakeDuration.clamped(to: 0...Awake.durations.max()!)
         s.wiggleInterval = s.wiggleInterval.clamped(to: Awake.wiggleIntervals.min()!...Awake.wiggleIntervals.max()!)
+        let defaults = Settings()
+        if !s.fasterKey.isValid { s.fasterKey = defaults.fasterKey }
+        if !s.sidewaysKey.isValid { s.sidewaysKey = defaults.sidewaysKey }
+        if !s.unsmoothedKey.isValid { s.unsmoothedKey = defaults.unsmoothedKey }
         self = s
     }
 

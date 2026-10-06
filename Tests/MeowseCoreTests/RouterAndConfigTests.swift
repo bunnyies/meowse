@@ -19,10 +19,16 @@ final class RouterAndConfigTests: XCTestCase {
 
     // MARK: Event mask
 
-    func testDefaultMaskHasNoKeyboardEvents() {
-        let m = cfg().eventMask
-        XCTAssertEqual(m, bit(.scrollWheel) | bit(.leftMouseDown))
-        XCTAssertEqual(m & (bit(.keyDown) | bit(.keyUp) | bit(.flagsChanged)), 0)
+    func testDefaultMaskIsJustScrollWheel() {
+        // No keyboard events ever; clicks come from a tap that's on only mid-glide.
+        XCTAssertEqual(cfg().eventMask, bit(.scrollWheel))
+    }
+
+    func testStopOnClickNeedsSmoothing() {
+        XCTAssertTrue(cfg().stopsOnClick)
+        XCTAssertFalse(cfg { $0.stopOnClick = false }.stopsOnClick)
+        XCTAssertFalse(cfg { $0.smooth = false }.stopsOnClick)
+        XCTAssertFalse(cfg { $0.enabled = false }.stopsOnClick)
     }
 
     func testNothingEnabledMeansNoTap() {
@@ -38,6 +44,15 @@ final class RouterAndConfigTests: XCTestCase {
         let m = cfg { $0.fasterKey = .mouseButton(3) }.eventMask
         XCTAssertNotEqual(m & bit(.otherMouseDown), 0)
         XCTAssertNotEqual(m & bit(.otherMouseUp), 0)
+    }
+
+    func testHandEditedHotkeysFallBackToDefaults() throws {
+        // A button number the UI never offers would crash its label or never be held.
+        let json = #"{"fasterKey":{"mouseButton":{"_0":9223372036854775807}},"sidewaysKey":{"mouseButton":{"_0":0}},"unsmoothedKey":{"mouseButton":{"_0":3}}}"#
+        let s = try JSONDecoder().decode(Settings.self, from: Data(json.utf8))
+        XCTAssertEqual(s.fasterKey, Settings().fasterKey)
+        XCTAssertEqual(s.sidewaysKey, Settings().sidewaysKey)
+        XCTAssertEqual(s.unsmoothedKey, .mouseButton(3))
     }
 
     // MARK: Modifiers

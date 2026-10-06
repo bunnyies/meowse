@@ -15,10 +15,23 @@ final class ScrollDeviceTests: XCTestCase {
         XCTAssertEqual(device(continuous: false, sourcePID: 812), .wheel)
     }
 
-    func testPhasedContinuousScrollingIsTouch() {
-        // Finger down (began), and the glide after lifting (momentum only).
-        XCTAssertEqual(device(continuous: true, scrollPhase: 1), .touch)
-        XCTAssertEqual(device(continuous: true, momentumPhase: 2), .touch)
+    func testTrackpadMomentumEndIsNotAWheelTick() {
+        // Seen when momentum is cut short: discrete, one point, momentum ended.
+        XCTAssertFalse(ScrollDevice.isWheelTick(scrollPhase: 0, momentumPhase: 3))
+        XCTAssertNil(device(continuous: false, momentumPhase: 3))
+        XCTAssertTrue(ScrollDevice.isWheelTick(scrollPhase: 0, momentumPhase: 0))
+    }
+
+    func testTouchCountsWhenAGestureStarts() {
+        XCTAssertEqual(device(continuous: true, scrollPhase: 1), .touch)    // began
+        XCTAssertEqual(device(continuous: true, scrollPhase: 128), .touch)  // may begin
+    }
+
+    func testCoastingAndMidGestureEventsDontSwitch() {
+        // Momentum still arriving after a switch to the wheel, or the middle of a gesture.
+        XCTAssertNil(device(continuous: true, momentumPhase: 2))
+        XCTAssertNil(device(continuous: true, scrollPhase: 2))
+        XCTAssertNil(device(continuous: true, scrollPhase: 4))
     }
 
     func testUnphasedContinuousScrollingIsUnknown() {
@@ -28,11 +41,42 @@ final class ScrollDeviceTests: XCTestCase {
 
     func testMeowseFramesAreNotTouch() {
         // Copied from a hardware wheel event, with trackpad-style phases.
-        XCTAssertNil(device(continuous: true, userData: ScrollDevice.frameTag, scrollPhase: 2))
-        XCTAssertNil(device(continuous: true, userData: ScrollDevice.frameTag, momentumPhase: 3))
+        XCTAssertNil(device(continuous: true, userData: ScrollDevice.frameTag, scrollPhase: 1))
     }
 
     func testOtherAppsContinuousScrollingIsIgnored() {
-        XCTAssertNil(device(continuous: true, sourcePID: 812, scrollPhase: 2))
+        XCTAssertNil(device(continuous: true, sourcePID: 812, scrollPhase: 1))
+    }
+
+    func testMomentumEchoes() {
+        // The system's "momentum ended" copies of a wheel tick and of our frames.
+        XCTAssertTrue(ScrollDevice.isMomentumEcho(continuous: false, scrollPhase: 0, momentumPhase: 3, tagged: false))
+        XCTAssertTrue(ScrollDevice.isMomentumEcho(continuous: true, scrollPhase: 0, momentumPhase: 3, tagged: true))
+        // The trackpad's own coasting and its real end, and our own frames, pass.
+        XCTAssertFalse(ScrollDevice.isMomentumEcho(continuous: true, scrollPhase: 0, momentumPhase: 2, tagged: false))
+        XCTAssertFalse(ScrollDevice.isMomentumEcho(continuous: true, scrollPhase: 0, momentumPhase: 3, tagged: false))
+        XCTAssertFalse(ScrollDevice.isMomentumEcho(continuous: true, scrollPhase: 0, momentumPhase: 0, tagged: true))
+    }
+
+    func testTouchKindFromScrollAcceleration() {
+        // As the trackpad and Magic Mouse drivers in macOS set it.
+        XCTAssertEqual(TouchKind(scrollAcceleration: "HIDTrackpadScrollAcceleration", product: "Apple Internal Keyboard / Trackpad"), .trackpad)
+        XCTAssertEqual(TouchKind(scrollAcceleration: "HIDTrackpadScrollAcceleration", product: nil), .trackpad)
+        XCTAssertEqual(TouchKind(scrollAcceleration: "HIDMouseScrollAcceleration", product: nil), .magicMouse)
+    }
+
+    func testOriginalMagicMouseFallsBackToProductName() {
+        XCTAssertEqual(TouchKind(scrollAcceleration: nil, product: "Magic Mouse"), .magicMouse)
+        XCTAssertEqual(TouchKind(scrollAcceleration: nil, product: "Magic Trackpad"), .trackpad)
+    }
+
+    func testUnknownSurfaceIsUnnamed() {
+        XCTAssertNil(TouchKind(scrollAcceleration: nil, product: nil))
+        XCTAssertNil(TouchKind(scrollAcceleration: nil, product: "Remote Desktop"))
+    }
+
+    func testTouchKindNames() {
+        XCTAssertEqual(TouchKind.trackpad.name, "trackpad")
+        XCTAssertEqual(TouchKind.magicMouse.name, "Magic Mouse")
     }
 }

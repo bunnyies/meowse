@@ -22,7 +22,9 @@ final class SettingsStore: ObservableObject {
     @Published var accessibilityTrusted = false
     @Published var engineStatus: Engine.TapStatus = .off
     /// The device behind the last scroll while the engine runs; nil until one is seen.
-    @Published var scrollDevice: ScrollDevice?
+    @Published private(set) var scrollDevice: ScrollDevice?
+    /// Which touch surface, when `scrollDevice` is `.touch` and it could be told.
+    @Published private(set) var touchKind: TouchKind?
     /// Cached so view updates never query the login-item service.
     @Published private(set) var launchAtLogin = false
 
@@ -67,6 +69,11 @@ final class SettingsStore: ObservableObject {
         if let data = Self.encode(settings) {
             UserDefaults.standard.set(data, forKey: Self.key)
         }
+    }
+
+    func setScrollDevice(_ device: ScrollDevice?, touch: TouchKind? = nil) {
+        if device != scrollDevice { scrollDevice = device }
+        if touch != touchKind { touchKind = touch }
     }
 
     // MARK: Launch at login
