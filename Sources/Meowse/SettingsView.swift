@@ -42,6 +42,18 @@ struct GeneralTab: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+                if store.engineStatus == .active {
+                    LabeledContent("Scrolling with") {
+                        switch store.scrollDevice {
+                        case .wheel:
+                            Label("Mouse wheel", systemImage: "computermouse")
+                        case .touch:
+                            Label("Trackpad or Magic Mouse", systemImage: "rectangle.and.hand.point.up.left")
+                        case nil:
+                            Text("Scroll to detect").foregroundStyle(.secondary)
+                        }
+                    }
+                }
             } footer: {
                 if !store.accessibilityTrusted {
                     caption("Turn on Meowse in System Settings → Privacy & Security → Accessibility. It takes effect within a few seconds.")

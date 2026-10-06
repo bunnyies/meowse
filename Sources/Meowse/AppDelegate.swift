@@ -34,7 +34,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         engine.onStatusChange = { [weak self] status in
             self?.store.engineStatus = status
             self?.statusMenu.engineStatus = status
+            if status != .active { self?.store.scrollDevice = nil }
         }
+        engine.onDeviceChange = { [weak self] device in self?.store.scrollDevice = device }
         statusMenu.setVisible(store.settings.showMenuBarIcon)
 
         observeSystem()

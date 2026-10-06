@@ -21,6 +21,8 @@ final class SettingsStore: ObservableObject {
     /// Runtime state, not persisted.
     @Published var accessibilityTrusted = false
     @Published var engineStatus: Engine.TapStatus = .off
+    /// The device behind the last scroll while the engine runs; nil until one is seen.
+    @Published var scrollDevice: ScrollDevice?
     /// Cached so view updates never query the login-item service.
     @Published private(set) var launchAtLogin = false
 

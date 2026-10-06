@@ -25,6 +25,8 @@ final class Engine: NSObject {
 
     /// Called on the main thread when the tap status changes.
     var onStatusChange: ((TapStatus) -> Void)?
+    /// Called on the main thread when scrolling switches to another kind of device.
+    var onDeviceChange: ((ScrollDevice) -> Void)?
 
     private var thread: Thread?
     private var runLoop: CFRunLoop?
@@ -37,6 +39,8 @@ final class Engine: NSObject {
     private var tapSource: CFRunLoopSource?
     private var installedMask: CGEventMask = 0
     private var reportedStatus: TapStatus?
+    /// The device behind the last hardware scroll since the tap was installed.
+    private var device: ScrollDevice?
 
     private var animator = ScrollAnimator()
     /// The last swallowed wheel event, reused for every synthetic frame.
@@ -181,6 +185,7 @@ final class Engine: NSObject {
         tap = nil
         tapSource = nil
         installedMask = 0
+        device = nil
     }
 
     // MARK: - Events
@@ -213,10 +218,12 @@ final class Engine: NSObject {
     @inline(__always)
     private func onScroll(_ event: CGEvent) -> Unmanaged<CGEvent>? {
         // Continuous events (trackpads, Magic Mouse, already-smooth remote
-        // sessions, our own frames) pass through after a single field read.
+        // sessions, our own frames) pass through untouched.
         if event.getIntegerValueField(.scrollWheelEventIsContinuous) != 0 {
+            if device != .touch { noteDevice(event, continuous: true) }
             return Unmanaged.passUnretained(event)
         }
+        if device != .wheel { noteDevice(event, continuous: false) }
 
         // The tick in lines, with the system's wheel acceleration applied.
         var dy = event.getDoubleValueField(.scrollWheelEventFixedPtDeltaAxis1)
@@ -253,6 +260,7 @@ final class Engine: NSObject {
             if route.clearX { clearAxis2(event) }
         }
         tpl.setIntegerValueField(.scrollWheelEventIsContinuous, value: 1)
+        tpl.setIntegerValueField(.eventSourceUserData, value: ScrollDevice.frameTag)
         template = tpl
         targetPID = pid
 
@@ -268,6 +276,22 @@ final class Engine: NSObject {
         }
 
         return route.swallow ? nil : Unmanaged.passUnretained(event)
+    }
+
+    /// Runs only for an event of a different kind than the last device sends
+    /// (or one of our own frames, which it ignores), so the main thread hears
+    /// about switches, not events.
+    @inline(never)
+    private func noteDevice(_ event: CGEvent, continuous: Bool) {
+        guard let d = ScrollDevice.of(
+            continuous: continuous,
+            sourcePID: event.getIntegerValueField(.eventSourceUnixProcessID),
+            userData: event.getIntegerValueField(.eventSourceUserData),
+            scrollPhase: event.getIntegerValueField(.scrollWheelEventScrollPhase),
+            momentumPhase: event.getIntegerValueField(.scrollWheelEventMomentumPhase)
+        ) else { return }
+        device = d
+        DispatchQueue.main.async { [weak self] in self?.onDeviceChange?(d) }
     }
 
     /// Display-link callback; runs only while a glide is in flight.
