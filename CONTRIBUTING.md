@@ -42,4 +42,6 @@ scripts/release.sh 1.2.0 # version bump, build and dist/Meowse.zip
 `build.sh` signs with the first Apple Development identity in your keychain,
 which keeps the Accessibility permission across rebuilds. Releases must be
 signed by the same team as installed copies, or the in-app updater rejects
-them.
+them. `release.sh` signs with your Developer ID Application certificate and
+has Apple notarize the archive, so Gatekeeper opens the download; its header
+explains the one-time setup.
