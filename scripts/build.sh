@@ -36,14 +36,20 @@ strip -x "$APP/Contents/MacOS/Meowse"
 # The Settings window is an app of its own inside this one, so everything it
 # loads goes back to the system when it closes. Its Info.plist is Meowse's,
 # renamed, so the versions always match.
-# It never shows a Dock icon, so it carries no icon of its own.
 HELPER="$APP/Contents/Helpers/Meowse Settings.app"
-mkdir -p "$HELPER/Contents/MacOS"
+mkdir -p "$HELPER/Contents/MacOS" "$HELPER/Contents/Resources"
 cp "$BIN/MeowseSettings" "$HELPER/Contents/MacOS/Meowse Settings"
 cp Resources/Info.plist "$HELPER/Contents/Info.plist"
+# It never shows a Dock icon, only list-sized ones (Activity Monitor,
+# Finder), so it gets the app icon's 16 and 32 pt images: 10 KB, not 440.
+ICONS=$(mktemp -d)
+iconutil -c iconset Resources/AppIcon.icns -o "$ICONS/all.iconset"
+mkdir "$ICONS/small.iconset"
+cp "$ICONS"/all.iconset/icon_{16x16,32x32}{,@2x}.png "$ICONS/small.iconset/"
+iconutil -c icns "$ICONS/small.iconset" -o "$HELPER/Contents/Resources/AppIcon.icns"
+rm -rf "$ICONS"
 /usr/libexec/PlistBuddy \
   -c "Set :CFBundleIdentifier app.meowse.Meowse.Settings" \
-  -c "Delete :CFBundleIconFile" \
   -c "Set :CFBundleExecutable 'Meowse Settings'" \
   -c "Set :CFBundleName 'Meowse Settings'" \
   -c "Set :CFBundleDisplayName 'Meowse Settings'" \
