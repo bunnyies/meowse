@@ -18,7 +18,7 @@ final class SettingsLinkTests: XCTestCase {
         state.device = .touch
         state.touch = .magicMouse
         state.update = .available(version: "1.3.0", notes: "Line one\nLine two")
-        state.releasePage = URL(string: "https://github.com/bunnyies/meowse/releases/tag/v1.3.0")
+        state.releasePage = URL(string: "https://github.com/salvcy/meowse/releases/tag/v1.3.0")
         let line = try XCTUnwrap(SettingsLink.encode(ToSettings.state(state)))
         // Exactly one newline: the one that ends the message.
         XCTAssertEqual(line.filter { $0 == 0x0A }.count, 1)

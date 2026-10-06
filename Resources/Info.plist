@@ -29,8 +29,8 @@
 	<key>LSUIElement</key>
 	<true/>
 	<key>MeowseUpdateRepository</key>
-	<string>bunnyies/meowse</string>
+	<string>salvcy/meowse</string>
 	<key>NSHumanReadableCopyright</key>
-	<string>© 2026 bunnyies</string>
+	<string>© 2026 salvcy</string>
 </dict>
 </plist>

@@ -4,7 +4,7 @@
 
 <p align="center">Smooth scrolling for mouse wheels, plus Keep Awake and Wiggle Cursor, in a menu bar app that uses no CPU when idle.</p>
 
-<p align="center"><a href="https://meowse.app">meowse.app</a> · <a href="https://github.com/bunnyies/meowse/releases/latest/download/Meowse.zip">Download</a> · <a href="https://meowse.app/changelog">Changelog</a></p>
+<p align="center"><a href="https://meowse.app">meowse.app</a> · <a href="https://github.com/salvcy/meowse/releases/latest/download/Meowse.zip">Download</a> · <a href="https://meowse.app/changelog">Changelog</a></p>
 
 ## Features
 
@@ -22,7 +22,7 @@ macOS 14 Sonoma or later, on Apple silicon or Intel.
 
 ## Installation
 
-1. Download `Meowse.zip` from the [latest release](https://github.com/bunnyies/meowse/releases/latest) and move **Meowse** to your Applications folder.
+1. Download `Meowse.zip` from the [latest release](https://github.com/salvcy/meowse/releases/latest) and move **Meowse** to your Applications folder.
 2. Open Meowse. When asked, turn on Meowse in **System Settings → Privacy & Security → Accessibility**. Meowse picks this up within a few seconds; no relaunch needed.
 
 Settings → General shows whether Accessibility is allowed and the scroll engine is running.
@@ -49,7 +49,7 @@ Meowse is built to be invisible when it isn't working:
 ## Building from source
 
 ```bash
-git clone https://github.com/bunnyies/meowse.git
+git clone https://github.com/salvcy/meowse.git
 cd meowse
 swift test
 scripts/install.sh    # builds, moves Meowse.app into /Applications and launches it
@@ -59,4 +59,4 @@ Building needs Xcode 15 or later. `scripts/build.sh` signs with your Apple Devel
 
 ## License
 
-Meowse is licensed under [Creative Commons Attribution-NonCommercial 4.0](LICENSE) (CC BY-NC 4.0). You're free to use, modify, fork and share it for non-commercial purposes, as long as you credit "Meowse by bunnyies" with a link to this repository and indicate any changes. Commercial use is not permitted.
+Meowse is licensed under [Creative Commons Attribution-NonCommercial 4.0](LICENSE) (CC BY-NC 4.0). You're free to use, modify, fork and share it for non-commercial purposes, as long as you credit "Meowse by salvcy" with a link to this repository and indicate any changes. Commercial use is not permitted.
