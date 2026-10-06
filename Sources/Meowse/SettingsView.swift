@@ -34,24 +34,12 @@ struct GeneralTab: View {
                 LabeledContent("Scroll engine") {
                     switch store.engineStatus {
                     case .active:
-                        Label("Running", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
+                        EngineActivity(idle: store.scrollDevice == .touch)
                     case .failed:
                         Label("Couldn’t start", systemImage: "exclamationmark.triangle.fill").foregroundStyle(.orange)
                     case .off:
                         Text(store.accessibilityTrusted ? "Off (nothing enabled)" : "Waiting for access")
                             .foregroundStyle(.secondary)
-                    }
-                }
-                if store.engineStatus == .active {
-                    LabeledContent("Scrolling with") {
-                        switch store.scrollDevice {
-                        case .wheel:
-                            Label("Mouse wheel", systemImage: "computermouse")
-                        case .touch:
-                            Label("Trackpad or Magic Mouse", systemImage: "rectangle.and.hand.point.up.left")
-                        case nil:
-                            Text("Scroll to detect").foregroundStyle(.secondary)
-                        }
                     }
                 }
             } footer: {
@@ -277,6 +265,25 @@ struct UpdatesTab: View {
 }
 
 // MARK: - Components
+
+/// Running while a mouse wheel scrolls; idle while a trackpad or Magic Mouse
+/// does, since those are smooth on their own.
+private struct EngineActivity: View {
+    let idle: Bool
+
+    var body: some View {
+        Label {
+            Text(idle ? "Idle" : "Running")
+        } icon: {
+            Image(systemName: idle ? "moon.zzz.fill" : "checkmark.circle.fill")
+                .contentTransition(.symbolEffect(.replace))
+        }
+        .foregroundStyle(idle ? Color.secondary : Color.green)
+        .animation(.smooth, value: idle)
+        .help(idle ? "Trackpads and the Magic Mouse scroll smoothly on their own. Meowse takes over when you scroll a mouse wheel."
+                   : "Smooths mouse wheel scrolling.")
+    }
+}
 
 private struct SliderRow: View {
     let title: String
