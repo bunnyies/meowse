@@ -1,5 +1,5 @@
 /// The kind of device behind a scroll event, as far as its fields tell.
-public enum ScrollDevice: UInt8, Sendable {
+public enum ScrollDevice: UInt8, Codable, Sendable {
     /// Discrete ticks from a mouse wheel: what Meowse smooths.
     case wheel
     /// Continuous, phased scrolling from a trackpad or Magic Mouse, which
@@ -46,7 +46,7 @@ public enum ScrollDevice: UInt8, Sendable {
 }
 
 /// Which touch surface is scrolling.
-public enum TouchKind: Sendable {
+public enum TouchKind: String, Codable, Sendable {
     case trackpad, magicMouse
 
     public var name: String {

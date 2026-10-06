@@ -24,18 +24,37 @@ IDENTITY="${SIGN_IDENTITY:--}"
 echo "Signing with: ${IDENTITY/#-/ad-hoc}"
 
 swift build -c release --arch arm64 --arch x86_64
-BIN="$(swift build -c release --arch arm64 --arch x86_64 --show-bin-path)/Meowse"
+BIN="$(swift build -c release --arch arm64 --arch x86_64 --show-bin-path)"
 
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp "$BIN" "$APP/Contents/MacOS/Meowse"
+cp "$BIN/Meowse" "$APP/Contents/MacOS/Meowse"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 strip -x "$APP/Contents/MacOS/Meowse"
 
+# The Settings window is an app of its own inside this one, so everything it
+# loads goes back to the system when it closes. Its Info.plist is Meowse's,
+# renamed, so the versions always match.
+HELPER="$APP/Contents/Helpers/Meowse Settings.app"
+mkdir -p "$HELPER/Contents/MacOS" "$HELPER/Contents/Resources"
+cp "$BIN/MeowseSettings" "$HELPER/Contents/MacOS/Meowse Settings"
+cp Resources/AppIcon.icns "$HELPER/Contents/Resources/AppIcon.icns"
+cp Resources/Info.plist "$HELPER/Contents/Info.plist"
+/usr/libexec/PlistBuddy \
+  -c "Set :CFBundleIdentifier app.meowse.Meowse.Settings" \
+  -c "Set :CFBundleExecutable 'Meowse Settings'" \
+  -c "Set :CFBundleName 'Meowse Settings'" \
+  -c "Set :CFBundleDisplayName 'Meowse Settings'" \
+  -c "Delete :MeowseUpdateRepository" \
+  "$HELPER/Contents/Info.plist"
+strip -x "$HELPER/Contents/MacOS/Meowse Settings"
+
+# Inside out: the helper's signature is sealed into Meowse's.
 TS=--timestamp=none
 [[ ${TIMESTAMP:-0} == 1 ]] && TS=--timestamp
+codesign --force --options runtime $TS --sign "$IDENTITY" "$HELPER"
 codesign --force --options runtime $TS --sign "$IDENTITY" "$APP"
-codesign --verify --strict "$APP"
+codesign --verify --strict --deep "$APP"
 
 echo "Built $APP ($(du -sh "$APP" | cut -f1))"

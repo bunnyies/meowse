@@ -15,14 +15,7 @@ final class Updater: ObservableObject {
 
     static let shared = Updater()
 
-    enum State: Equatable {
-        case idle
-        case checking
-        case upToDate
-        case available(version: String, notes: String)
-        case installing
-        case failed(String)
-    }
+    typealias State = UpdateStatus
 
     @Published private(set) var state: State = .idle
     @Published private(set) var lastChecked: Date?

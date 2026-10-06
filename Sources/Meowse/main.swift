@@ -8,6 +8,9 @@ if let id = Bundle.main.bundleIdentifier,
     exit(0)
 }
 
+// Writing to a Settings window that just closed must fail quietly, not end Meowse.
+signal(SIGPIPE, SIG_IGN)
+
 let app = NSApplication.shared
 let delegate = AppDelegate()
 app.delegate = delegate

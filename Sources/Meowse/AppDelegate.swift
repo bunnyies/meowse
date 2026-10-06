@@ -8,7 +8,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let awake = AwakeController.shared
     private let updater = Updater.shared
     private lazy var statusMenu = StatusMenuController(store: store, awake: awake, updater: updater)
-    private var settingsWindow: SettingsWindowController?
+    private lazy var settingsHost: SettingsHost = {
+        let host = SettingsHost(store: store, awake: awake, updater: updater)
+        host.requestPermission = { [weak self] in self?.requestPermission() }
+        return host
+    }()
     private var trusted = false
     /// Exists only while Accessibility access is missing.
     private var trustWatch: DispatchSourceTimer?
@@ -147,21 +151,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: - Settings window
 
-    private func showSettings(tab: SettingsWindowController.Tab? = nil) {
-        if settingsWindow == nil {
-            let controller = SettingsWindowController(store: store, awake: awake, updater: updater) { [weak self] in
-                self?.requestPermission()
-            }
-            controller.onClose = { [weak self] in
-                // Release the window and its views.
-                DispatchQueue.main.async { self?.settingsWindow = nil }
-            }
-            settingsWindow = controller
-        }
+    private func showSettings(tab: SettingsTab? = nil) {
         store.refreshLaunchAtLogin()
         refreshTrust(prompt: false)
-        if let tab { settingsWindow?.select(tab) }
-        settingsWindow?.show()
+        settingsHost.show(tab: tab)
     }
 
     func applicationWillTerminate(_ notification: Notification) {

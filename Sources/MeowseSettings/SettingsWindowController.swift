@@ -1,10 +1,9 @@
 import AppKit
 import SwiftUI
+import MeowseCore
 
-/// Settings window with toolbar tabs. Created on demand and released on close.
+/// Settings window with toolbar tabs. The process exits when it closes.
 final class SettingsWindowController: NSWindowController, NSWindowDelegate {
-
-    enum Tab: Int { case general, scrolling, hotkeys, awake, updates }
 
     var onClose: (() -> Void)?
     private let tabs = FittingTabViewController()
@@ -39,7 +38,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError() }
 
-    func select(_ tab: Tab) {
+    func select(_ tab: SettingsTab) {
         tabs.selectedTabViewItemIndex = tab.rawValue
     }
 

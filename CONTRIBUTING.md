@@ -23,9 +23,11 @@ change that adds idle work or system-wide cost needs a very good reason.
    target app work, so post only visible motion and end glides promptly.
 5. **Prefer system mechanisms.** For example, Keep Awake uses a power assertion
    with a system-enforced timeout rather than tracking time itself.
-6. **Native UI.** `NSMenu` for the menu bar; SwiftUI only in windows that are
-   created on demand and released on close. Standard controls and SF Symbols,
-   no web views, no third-party dependencies.
+6. **Native UI.** `NSMenu` for the menu bar, built the first time it opens.
+   SwiftUI only in the Settings window, which runs as its own process
+   (`Meowse Settings.app` inside the bundle) and exits when the window closes,
+   so what SwiftUI loads never stays in Meowse. Standard controls and SF
+   Symbols, no web views, no third-party dependencies.
 7. **Lazy UI state.** Menu items refresh in `menuNeedsUpdate`. View code reads
    cached values and never makes system calls. Writes to disk are coalesced.
 8. **Logic in `MeowseCore`.** Anything that can be pure lives there, without

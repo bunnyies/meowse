@@ -17,11 +17,7 @@ final class Engine: NSObject {
         let link: CADisplayLink
     }
 
-    enum TapStatus: Equatable {
-        case off      // nothing enabled, or no Accessibility permission
-        case active
-        case failed   // permitted, but the system refused to create the tap
-    }
+    typealias TapStatus = EngineStatus
 
     /// Called on the main thread when the tap status changes.
     var onStatusChange: ((TapStatus) -> Void)?

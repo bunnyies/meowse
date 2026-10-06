@@ -1,8 +1,9 @@
 import AppKit
 import MeowseCore
 
-/// The menu bar item. Items are built once and refreshed in `menuNeedsUpdate`,
-/// so nothing runs while the menu is closed.
+/// The menu bar item. Items are built the first time the menu opens and
+/// refreshed in `menuNeedsUpdate`, so nothing runs while the menu is closed
+/// and a menu that's never opened costs nothing.
 final class StatusMenuController: NSObject, NSMenuDelegate {
 
     private let store: SettingsStore
@@ -41,7 +42,8 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         self.awake = awake
         self.updater = updater
         super.init()
-        buildMenu()
+        menu.delegate = self
+        menu.autoenablesItems = false
     }
 
     // MARK: - Visibility
@@ -74,9 +76,6 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
     // MARK: - Building
 
     private func buildMenu() {
-        menu.delegate = self
-        menu.autoenablesItems = false
-
         permissionItem = item("Allow Accessibility Access…", "exclamationmark.triangle.fill", #selector(permissionClicked))
         engineFailedItem = item("Scrolling Didn’t Start: Retry", "exclamationmark.triangle.fill", #selector(retryClicked))
         permissionSeparator = .separator()
@@ -148,6 +147,7 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
     // MARK: - Refresh
 
     func menuNeedsUpdate(_ menu: NSMenu) {
+        if menu.items.isEmpty { buildMenu() }
         willOpen()
         let s = store.settings
 
