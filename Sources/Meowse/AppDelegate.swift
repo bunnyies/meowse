@@ -14,6 +14,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var trustWatch: DispatchSourceTimer?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // First, so a copy that's moving never installs its tap or asks for access.
+        if AppMover.offerMove() { return }
         engine.start()
         engine.apply(EngineConfig(store.settings))
         rebuildScreens()

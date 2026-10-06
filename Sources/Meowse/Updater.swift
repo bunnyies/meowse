@@ -260,14 +260,7 @@ final class Updater: ObservableObject {
             return
         }
         try? FileManager.default.removeItem(at: workDir)
-
-        // Reopen once this process has exited (the single-instance guard would refuse earlier).
-        let relauncher = Process()
-        relauncher.executableURL = URL(fileURLWithPath: "/bin/sh")
-        relauncher.arguments = ["-c", "while /bin/kill -0 \(getpid()) 2>/dev/null; do /bin/sleep 0.2; done; /usr/bin/open \"$0\"",
-                                appURL.path]
-        try? relauncher.run()
-        NSApp.terminate(nil)
+        NSApp.relaunch(appURL)
     }
 
     private func fail(_ error: UpdateError, cleaning workDir: URL) {
