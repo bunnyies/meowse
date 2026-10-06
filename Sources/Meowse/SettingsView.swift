@@ -101,13 +101,14 @@ struct ScrollingTab: View {
                 }
                 .disabled(!store.settings.smooth)
             }
+            .disabled(!store.settings.enabled)
 
             Section("Direction") {
                 Toggle("Reverse vertical", isOn: $store.settings.reverseVertical)
                 Toggle("Reverse horizontal", isOn: $store.settings.reverseHorizontal)
             }
+            .disabled(!store.settings.enabled)
         }
-        .disabled(!store.settings.enabled)
         .settingsTab()
     }
 }
