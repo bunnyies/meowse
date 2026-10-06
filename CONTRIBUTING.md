@@ -1,0 +1,45 @@
+# Contributing
+
+Meowse's priority is efficiency, then native behaviour, then features. A
+change that adds idle work or system-wide cost needs a very good reason.
+
+## Rules
+
+1. **No polling.** Respond to system notifications (wake, session, screen,
+   lock, accessibility) instead of checking on a timer. Timers are allowed
+   only when one-shot, when a user-enabled feature needs them, or while
+   Accessibility access is missing. All timers get leeway so the kernel can
+   coalesce wakeups.
+2. **Idle is zero.** With the menu closed and no glide in progress, the app
+   uses 0% CPU and has no idle wakeups. Check with `scripts/measure.sh`.
+3. **One event tap.** Its mask is built from the current settings, and it
+   doesn't exist when nothing needs it. Modifier hotkeys are read from event
+   flags, so the tap never receives keyboard events.
+4. **Keep the event path lean.** Scroll handling and frame posting run on the
+   engine thread (`Engine.swift`) without locks, allocation or main-thread
+   work. Classify events and return early. Every synthetic event costs the
+   target app work, so post only visible motion and end glides promptly.
+5. **Prefer system mechanisms.** For example, Keep Awake uses a power assertion
+   with a system-enforced timeout rather than tracking time itself.
+6. **Native UI.** `NSMenu` for the menu bar; SwiftUI only in windows that are
+   created on demand and released on close. Standard controls and SF Symbols,
+   no web views, no third-party dependencies.
+7. **Lazy UI state.** Menu items refresh in `menuNeedsUpdate`. View code reads
+   cached values and never makes system calls. Writes to disk are coalesced.
+8. **Logic in `MeowseCore`.** Anything that can be pure lives there, without
+   AppKit, and has unit tests.
+
+## Workflow
+
+```bash
+swift test               # unit tests
+scripts/build.sh         # release build → build/Meowse.app
+scripts/install.sh       # build and move into /Applications, then relaunch
+scripts/measure.sh       # CPU, idle wakeups and memory of the running app
+scripts/release.sh 1.2.0 # version bump, build and dist/Meowse.zip
+```
+
+`build.sh` signs with the first Apple Development identity in your keychain,
+which keeps the Accessibility permission across rebuilds. Releases must be
+signed by the same team as installed copies, or the in-app updater rejects
+them.

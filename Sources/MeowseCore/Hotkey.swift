@@ -1,0 +1,104 @@
+import CoreGraphics
+
+/// A key or button held while scrolling. Modifiers are read from the scroll
+/// event's own flags; only mouse-button hotkeys need extra events from the tap.
+public enum Hotkey: Codable, Hashable, Sendable {
+    case none
+    case modifier(ModifierKey)
+    /// CGEvent mouse button number (2 = middle, 3 = back, 4 = forward, ...).
+    case mouseButton(Int)
+
+    public var needsMouseButtonEvents: Bool {
+        if case .mouseButton = self { return true }
+        return false
+    }
+
+    @inline(__always)
+    public func isHeld(flags: UInt64, heldButtons: UInt32) -> Bool {
+        switch self {
+        case .none:
+            return false
+        case .modifier(let key):
+            return key.isHeld(flags: flags)
+        case .mouseButton(let n):
+            return n >= 0 && n < 32 && heldButtons & (1 << UInt32(n)) != 0
+        }
+    }
+
+    public var displayName: String {
+        switch self {
+        case .none: return "None"
+        case .modifier(let key): return key.displayName
+        case .mouseButton(let n):
+            switch n {
+            case 2: return "Middle Button"
+            case 3: return "Back Button"
+            case 4: return "Forward Button"
+            default: return "Mouse Button \(n + 1)"
+            }
+        }
+    }
+}
+
+public enum ModifierKey: String, Codable, CaseIterable, Sendable {
+    case shift, leftShift, rightShift
+    case option, leftOption, rightOption
+    case command, leftCommand, rightCommand
+    case control, leftControl, rightControl
+
+    // Device-dependent bits from IOLLEvent.h (NX_DEVICE*KEYMASK).
+    private static let lCtl: UInt64 = 0x0000_0001
+    private static let lShift: UInt64 = 0x0000_0002
+    private static let rShift: UInt64 = 0x0000_0004
+    private static let lCmd: UInt64 = 0x0000_0008
+    private static let rCmd: UInt64 = 0x0000_0010
+    private static let lAlt: UInt64 = 0x0000_0020
+    private static let rAlt: UInt64 = 0x0000_0040
+    private static let rCtl: UInt64 = 0x0000_2000
+
+    private var family: (generic: UInt64, left: UInt64, right: UInt64) {
+        switch self {
+        case .shift, .leftShift, .rightShift:
+            return (CGEventFlags.maskShift.rawValue, Self.lShift, Self.rShift)
+        case .option, .leftOption, .rightOption:
+            return (CGEventFlags.maskAlternate.rawValue, Self.lAlt, Self.rAlt)
+        case .command, .leftCommand, .rightCommand:
+            return (CGEventFlags.maskCommand.rawValue, Self.lCmd, Self.rCmd)
+        case .control, .leftControl, .rightControl:
+            return (CGEventFlags.maskControl.rawValue, Self.lCtl, Self.rCtl)
+        }
+    }
+
+    @inline(__always)
+    public func isHeld(flags: UInt64) -> Bool {
+        let f = family
+        guard flags & f.generic != 0 else { return false }
+        let sideBits = flags & (f.left | f.right)
+        switch self {
+        case .shift, .option, .command, .control:
+            return true
+        case .leftShift, .leftOption, .leftCommand, .leftControl:
+            // Some synthetic sources omit side bits; fall back to the generic flag.
+            return sideBits == 0 || flags & f.left != 0
+        case .rightShift, .rightOption, .rightCommand, .rightControl:
+            return sideBits == 0 || flags & f.right != 0
+        }
+    }
+
+    public var displayName: String {
+        switch self {
+        case .shift: return "⇧ Shift (either)"
+        case .leftShift: return "⇧ Left Shift"
+        case .rightShift: return "⇧ Right Shift"
+        case .option: return "⌥ Option (either)"
+        case .leftOption: return "⌥ Left Option"
+        case .rightOption: return "⌥ Right Option"
+        case .command: return "⌘ Command (either)"
+        case .leftCommand: return "⌘ Left Command"
+        case .rightCommand: return "⌘ Right Command"
+        case .control: return "⌃ Control (either)"
+        case .leftControl: return "⌃ Left Control"
+        case .rightControl: return "⌃ Right Control"
+        }
+    }
+}
