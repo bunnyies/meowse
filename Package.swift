@@ -17,7 +17,9 @@ let package = Package(
         // The Settings window, a separate process that exits when it closes.
         .executableTarget(
             name: "MeowseSettings",
-            dependencies: ["MeowseCore"]
+            dependencies: ["MeowseCore"],
+            // Not on any hot path, so it's built for size: a smaller download.
+            swiftSettings: [.unsafeFlags(["-Osize"], .when(configuration: .release))]
         ),
         .testTarget(
             name: "MeowseCoreTests",
