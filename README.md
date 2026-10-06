@@ -6,7 +6,7 @@
 
 ## Features
 
-- **Smooth scrolling** for any scroll wheel, with adjustable distance per notch and glide time. Trackpads and the Magic Mouse are left alone.
+- **Smooth scrolling** for any scroll wheel, with adjustable scroll distance and smoothness. Trackpads and the Magic Mouse are left alone.
 - **Reverse direction**, vertically and horizontally, independent of the trackpad setting.
 - **Hold-to-modify hotkeys**: hold a modifier key or mouse button while scrolling to scroll faster, scroll horizontally, or turn smoothing off.
 - **Simulated trackpad momentum**, so apps rubber-band and treat the glide as a fling.
@@ -38,10 +38,10 @@ Meowse collects nothing. Its only network request is the update check to GitHub,
 
 Meowse is built to be invisible when it isn't working:
 
-- **Zero idle cost.** No polling and no repeating timers. With the menu closed and nothing scrolling, it uses 0% CPU and has no wakeups.
+- **Zero idle cost.** No polling and no repeating timers. With the menu closed and nothing scrolling, it uses 0% CPU and has no wakeups, apart from the once-a-day update check, which you can turn off.
 - **One event tap**, configured for only the events your settings need, and absent entirely when nothing is enabled. It never sees your keystrokes; modifier hotkeys are read from the scroll event itself.
 - **A dedicated scroll thread** with no locks or allocations on the event path, so a busy app never delays your scrolling.
-- **Fewer events per glide.** A glide moves in whole points, the smallest step a scroll event can carry, so every event moves the page. A wheel notch takes 41% fewer events than one per frame, and the glide still lands on its exact distance.
+- **Fewer events per glide.** A glide moves in whole points, the smallest step a scroll event can carry, so every event moves the page. On a 120 Hz display a wheel notch takes 43% fewer events than one per frame, and the glide still lands on its exact distance.
 - **Frame-rate independent.** Glides feel the same at 60, 120 and 144 Hz, and run at your display's full refresh rate.
 - **System-enforced Keep Awake.** Timed sessions end on schedule even if Meowse quits.
 

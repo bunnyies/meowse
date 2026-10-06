@@ -11,10 +11,10 @@ public struct Settings: Codable, Equatable, Sendable {
     public var smooth = true
     public var smoothVertical = true
     public var smoothHorizontal = true
-    /// Points one slow notch scrolls. Faster spins go farther.
-    public var notchDistance = 80.0
-    /// Seconds a glide takes to cover 99% of its distance.
-    public var glideTime = 0.4
+    /// Scroll distance: points one slow notch scrolls. Faster spins go farther.
+    public var notchDistance = 100.0
+    /// Smoothness: seconds a glide takes to cover 99% of its distance.
+    public var glideTime = 0.5
     /// Mark glides with trackpad scroll and momentum phases, so apps
     /// rubber-band at the edges and treat the glide like a swipe.
     public var trackpadPhases = false

@@ -163,12 +163,13 @@ final class ScrollAnimatorTests: XCTestCase {
     }
 
     func testEventBudgetPerNotch() {
-        // One default notch at 120 Hz glides for 56 frames; whole-point frames
-        // need 33 events, each of which moves the page.
+        // One default notch at 120 Hz glides for 72 frames; whole-point frames
+        // need 41 events (43% fewer), each of which moves the page.
         var a = ScrollAnimator()
         a.input(dy: Settings().notchDistance, dx: 0, now: 0) { _ in }
-        let n = run(&a, from: 0, hz: 120).frames.filter { !$0.isMarker }.count
-        XCTAssertLessThanOrEqual(n, 33)
+        let (frames, end) = run(&a, from: 0, hz: 120)
+        XCTAssertEqual(end * 120, 72, accuracy: 0.5)
+        XCTAssertLessThanOrEqual(frames.filter { !$0.isMarker }.count, 41)
     }
 
     func testTinyGlideRoundsToTheNearestPoint() {

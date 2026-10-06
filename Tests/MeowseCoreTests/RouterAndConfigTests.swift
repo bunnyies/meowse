@@ -61,7 +61,7 @@ final class RouterAndConfigTests: XCTestCase {
         let r = route(1, 0, cfg())
         XCTAssertTrue(r.swallow)
         XCTAssertTrue(r.reverseY)
-        XCTAssertEqual(r.glideY, -80, accuracy: 1e-9)
+        XCTAssertEqual(r.glideY, -100, accuracy: 1e-9)
         XCTAssertEqual(r.glideX, 0)
     }
 
@@ -74,7 +74,7 @@ final class RouterAndConfigTests: XCTestCase {
 
     func testFasterKeyMultiplies() {
         let r = route(1, 0, flags: lAlt, cfg { $0.reverseVertical = false })
-        XCTAssertEqual(r.glideY, 80 * 3, accuracy: 1e-9)
+        XCTAssertEqual(r.glideY, 100 * 3, accuracy: 1e-9)
     }
 
     func testDefaultHotkeysWorkWithEitherSide() {
@@ -86,7 +86,7 @@ final class RouterAndConfigTests: XCTestCase {
     func testSidewaysSwapsToHorizontalUsingHorizontalPrefs() {
         let r = route(1, 0, flags: lShift, cfg { $0.reverseVertical = false; $0.reverseHorizontal = true })
         XCTAssertEqual(r.glideY, 0)
-        XCTAssertEqual(r.glideX, -80, accuracy: 1e-9)
+        XCTAssertEqual(r.glideX, -100, accuracy: 1e-9)
         XCTAssertTrue(r.swallow)
     }
 

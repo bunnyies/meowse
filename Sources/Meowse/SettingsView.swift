@@ -95,8 +95,8 @@ struct ScrollingTab: View {
                 Group {
                     Toggle("Vertical", isOn: $store.settings.smoothVertical)
                     Toggle("Horizontal", isOn: $store.settings.smoothHorizontal)
-                    SliderRow("Distance per notch", value: $store.settings.notchDistance, range: Settings.notchDistanceRange, format: "%.0f pt")
-                    SliderRow("Glide time", value: $store.settings.glideTime, range: Settings.glideTimeRange, format: "%.2f s")
+                    SliderRow("Scroll distance", value: $store.settings.notchDistance, range: Settings.notchDistanceRange, format: "%.0f pt")
+                    SliderRow("Smoothness", value: $store.settings.glideTime, range: Settings.glideTimeRange, format: "%.2f s")
                     Toggle("Trackpad-style momentum", isOn: $store.settings.trackpadPhases)
                 }
                 .disabled(!store.settings.smooth)
