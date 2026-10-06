@@ -4,6 +4,8 @@
 
 <p align="center">Smooth scrolling for mouse wheels, plus Keep Awake and Wiggle Cursor, in a menu bar app that uses no CPU when idle.</p>
 
+<p align="center"><a href="https://meowse.app">meowse.app</a> · <a href="https://github.com/bunnyies/meowse/releases/latest/download/Meowse.zip">Download</a> · <a href="https://meowse.app/changelog">Changelog</a></p>
+
 ## Features
 
 - **Smooth scrolling** for any scroll wheel, with adjustable scroll distance and smoothness. Trackpads and the Magic Mouse are left alone.
