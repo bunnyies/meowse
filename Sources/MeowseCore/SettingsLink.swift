@@ -15,7 +15,7 @@ public enum UpdateStatus: Codable, Equatable, Sendable {
     case idle
     case checking
     case upToDate
-    case available(version: String, notes: String)
+    case available(version: String)
     case installing
     case failed(String)
 }
@@ -40,7 +40,8 @@ public struct SettingsState: Codable, Equatable, Sendable {
     public var update = UpdateStatus.idle
     public var lastChecked: Date?
     public var availableVersion: String?
-    public var availableNotes = ""
+    /// Nil retains the notes already held by the helper.
+    public var availableNotes: String?
     public var releasePage: URL?
 
     public init() {}

@@ -21,6 +21,8 @@ final class SettingsHost {
     private var statePending = false
     /// The settings the window has, so they're sent only when Meowse changed them.
     private var windowSettings: Settings?
+    /// The rest of what the window shows, as last sent.
+    private var shown: SettingsState?
 
     init(store: SettingsStore, awake: AwakeController, updater: Updater) {
         self.store = store
@@ -50,8 +52,9 @@ final class SettingsHost {
             if data.isEmpty { handle.readabilityHandler = nil }
             DispatchQueue.main.async { self?.received(data) }
         }
-        p.terminationHandler = { [weak self] _ in
-            DispatchQueue.main.async { self?.ended() }
+        p.terminationHandler = { [weak self] exited in
+            // A window closed just before Settings reopened mustn't end the new one.
+            DispatchQueue.main.async { if self?.process === exited { self?.ended() } }
         }
         do {
             try p.run()
@@ -82,6 +85,7 @@ final class SettingsHost {
         fromWindow = nil
         reader = LineReader()
         windowSettings = nil
+        shown = nil
         statePending = false
     }
 
@@ -104,15 +108,18 @@ final class SettingsHost {
         case .requestPermission:
             requestPermission()
         case .launchAtLogin(let on):
+            shown?.launchAtLogin = on
             store.setLaunchAtLogin(on)
             scheduleState()  // the window showed the change already; confirm or undo it
         case .keepAwake(let on):
+            shown?.awake = on  // the window shows these at once too
             if on {
                 awake.startAwake(duration: store.settings.awakeDuration, allowDisplaySleep: store.settings.awakeAllowDisplaySleep)
             } else {
                 awake.stopAwake()
             }
         case .wiggle(let on):
+            shown?.wiggling = on
             on ? awake.startWiggle(interval: store.settings.wiggleInterval) : awake.stopWiggle()
         case .checkForUpdates:
             updater.check(userInitiated: true)
@@ -132,10 +139,6 @@ final class SettingsHost {
 
     private func sendState() {
         var s = SettingsState()
-        if store.settings != windowSettings {
-            s.settings = store.settings
-            windowSettings = store.settings
-        }
         s.trusted = store.accessibilityTrusted
         s.engine = store.engineStatus
         s.device = store.scrollDevice
@@ -149,6 +152,16 @@ final class SettingsHost {
         s.availableVersion = updater.availableVersion
         s.availableNotes = updater.availableNotes
         s.releasePage = updater.releasePage
+        // Nothing the window shows changed, as after its own edits.
+        let settingsChanged = store.settings != windowSettings
+        guard settingsChanged || s != shown else { return }
+        let full = s
+        if s.availableNotes == shown?.availableNotes { s.availableNotes = nil }  // it keeps the ones it has
+        shown = full
+        if settingsChanged {
+            s.settings = store.settings
+            windowSettings = store.settings
+        }
         send(.state(s))
     }
 

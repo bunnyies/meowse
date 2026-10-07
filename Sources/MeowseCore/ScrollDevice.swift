@@ -19,9 +19,9 @@ public enum ScrollDevice: UInt8, Codable, Sendable {
 
     /// While a trackpad or Magic Mouse coasts, the system copies each wheel
     /// tick (discrete) and each of Meowse's frames (`tagged`) into a "momentum
-    /// ended" event for the coasting app. Delivered while the coasting goes
-    /// on, these leave Finder ignoring the wheel and Chromium-based apps
-    /// dropping the glide.
+    /// ended" event for the coasting app. The frames' copies make
+    /// Chromium-based apps drop the glide; a tick's copy carries the tick's
+    /// motion, which the glide already brings.
     @inline(__always)
     public static func isMomentumEcho(continuous: Bool, scrollPhase: Int64, momentumPhase: Int64, tagged: Bool) -> Bool {
         guard scrollPhase == 0, momentumPhase != 0 else { return false }

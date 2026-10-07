@@ -134,7 +134,7 @@ final class Updater: ObservableObject {
             UserDefaults.standard.set(now, forKey: Self.lastCheckedKey)
             if release.isUpdate(over: currentVersion), let version = release.version {
                 self.release = release
-                state = .available(version: version.description, notes: release.notes ?? "")
+                state = .available(version: version.description)
             } else {
                 self.release = nil
                 state = .upToDate

@@ -40,10 +40,11 @@ Meowse collects nothing. Its only network request is the update check to GitHub,
 Meowse is built to be invisible when it isn't working:
 
 - **Zero idle cost.** No polling and no repeating timers. With the menu closed and nothing scrolling, it uses 0% CPU and has no wakeups, apart from the once-a-day update check, which you can turn off.
+- **Under 9 MB of memory** at launch. The system allocator runs in its space-efficient mode, and Settings runs as its own process, so the memory it uses goes back to the system when its window closes.
 - **One event tap**, configured for only the events your settings need, and absent entirely when nothing is enabled. It never sees your keystrokes; modifier hotkeys are read from the scroll event itself.
 - **A dedicated scroll thread** with no locks or allocations on the event path, so a busy app never delays your scrolling.
-- **Fewer events per glide.** A glide moves in whole points, the smallest step a scroll event can carry, so every event moves the page. On a 120 Hz display a wheel notch takes 43% fewer events than one per frame, and the glide still lands on its exact distance.
-- **Frame-rate independent.** Glides feel the same at 60, 120 and 144 Hz, and run at your display's full refresh rate.
+- **Fewer events per glide.** A glide moves in whole points, the smallest step a scroll event can carry, so every event moves the page. On a 120 Hz display a wheel notch takes 42% fewer events than one per frame, and the glide still lands on its exact distance.
+- **Frame-rate independent.** Glides feel the same at 60, 120 and 144 Hz, even when one moves to a display with a different refresh rate, and run at your display's full refresh rate.
 - **System-enforced Keep Awake.** Timed sessions end on schedule even if Meowse quits.
 
 ## Building from source

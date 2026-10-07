@@ -64,7 +64,7 @@ final class Remote {
         update(&updater.state, s.update)
         update(&updater.lastChecked, s.lastChecked)
         update(&updater.availableVersion, s.availableVersion)
-        update(&updater.availableNotes, s.availableNotes)
+        if let notes = s.availableNotes { update(&updater.availableNotes, notes) }
         update(&updater.releasePage, s.releasePage)
     }
 

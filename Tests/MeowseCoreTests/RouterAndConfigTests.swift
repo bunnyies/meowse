@@ -46,6 +46,30 @@ final class RouterAndConfigTests: XCTestCase {
         XCTAssertNotEqual(m & bit(.otherMouseUp), 0)
     }
 
+    func testInactiveMouseBindingsDoNotSubscribeButSidewaysStillDoes() {
+        for key in [\Settings.fasterKey, \Settings.unsmoothedKey, \Settings.sidewaysKey] {
+            for smooth in [false, true] {
+                for reverse in [false, true] {
+                    var settings = Settings()
+                    settings.smooth = smooth
+                    settings.reverseVertical = reverse
+                    settings.reverseHorizontal = reverse
+                    settings[keyPath: key] = .mouseButton(3)
+                    let subscribed = EngineConfig(settings).eventMask & bit(.otherMouseDown) != 0
+                    XCTAssertEqual(subscribed, smooth)
+                }
+            }
+        }
+        XCTAssertEqual(cfg { $0.fasterKey = .mouseButton(3); $0.fasterFactor = 1 }.eventMask, bit(.scrollWheel))
+        let c = cfg {
+            $0.smooth = false; $0.reverseVertical = false; $0.reverseHorizontal = true
+            $0.sidewaysKey = .mouseButton(3)
+        }
+        XCTAssertNotEqual(c.eventMask & bit(.otherMouseDown), 0)
+        XCTAssertFalse(route(1, 0, c).reverseY)
+        XCTAssertTrue(route(1, 0, buttons: 1 << 3, c).reverseY)
+    }
+
     func testHandEditedHotkeysFallBackToDefaults() throws {
         // A button number the UI never offers would crash its label or never be held.
         let json = #"{"fasterKey":{"mouseButton":{"_0":9223372036854775807}},"sidewaysKey":{"mouseButton":{"_0":0}},"unsmoothedKey":{"mouseButton":{"_0":3}}}"#

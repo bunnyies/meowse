@@ -93,6 +93,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
+        for name in [NSWorkspace.willSleepNotification, NSWorkspace.sessionDidResignActiveNotification] {
+            ws.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                self?.engine.cancelGlide()
+            }
+        }
+
         NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification,
             object: nil, queue: .main

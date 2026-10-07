@@ -98,7 +98,7 @@ struct ScrollingTab: View {
                     SliderRow("Scroll distance", value: $store.settings.notchDistance, range: Settings.notchDistanceRange, format: "%.0f pt")
                     SliderRow("Smoothness", value: $store.settings.glideTime, range: Settings.glideTimeRange, format: "%.2f s")
                     Toggle("Trackpad-style momentum", isOn: $store.settings.trackpadPhases)
-                        .help("Glides rubber-band at the ends of pages, like a trackpad. Once you've scrolled with a trackpad or Magic Mouse, Meowse uses it anyway, because Finder otherwise stops taking the wheel.")
+                        .help("Glides rubber-band at the ends of pages, like a trackpad.")
                 }
                 .disabled(!store.settings.smooth)
             }
@@ -262,7 +262,7 @@ struct UpdatesTab: View {
             HStack(spacing: 6) { ProgressView().controlSize(.small); Text("Checking…") }
         case .upToDate:
             Label("Up to date", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
-        case .available(let version, _):
+        case .available(let version):
             Label("Version \(version) available", systemImage: "arrow.down.circle.fill").foregroundStyle(.blue)
         case .installing:
             HStack(spacing: 6) { ProgressView().controlSize(.small); Text("Installing…") }

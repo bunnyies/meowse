@@ -56,7 +56,7 @@ public struct ScrollAnimator {
     public private(set) var state: State = .idle
     public var isActive: Bool { state != .idle }
 
-    // Per axis: rem = not yet integrated, speed = points per frame,
+    // Per axis: rem = not yet integrated, speed = points per second,
     // carry = integrated but not yet a whole point, owed = input not yet posted,
     // dir = sign of the last input.
     private var remY = 0.0, remX = 0.0
@@ -69,8 +69,9 @@ public struct ScrollAnimator {
 
     // Recomputed only when the frame interval changes.
     private var cachedDt = -1.0
-    private var approach = 0.0
-    private var ramp = 0.0
+    private var remainingFactor = 0.0
+    private var velocityFactor = 0.0
+    private var transfer = 0.0
 
     public init(decay: Double = EngineConfig(Settings()).decay) {
         self.decay = decay
@@ -96,24 +97,25 @@ public struct ScrollAnimator {
     public mutating func step(now: Double, dt: Double, emit: (Frame) -> Void) {
         guard state != .idle else { return }
 
+        guard dt.isFinite, dt > 0 else { return }
         if dt != cachedDt {
-            let t = max(dt, 0.0005)
-            approach = 1 - exp(-t / decay)
-            ramp = 1 - exp(-t / Self.rise)
+            let d = max(decay, 0.000001)
+            remainingFactor = exp(-dt / d)
+            velocityFactor = exp(-dt / Self.rise)
+            let difference = d - Self.rise
+            transfer = abs(difference) < 1e-10
+                ? remainingFactor * dt / (d * Self.rise)
+                : (remainingFactor - velocityFactor) / difference
             cachedDt = dt
         }
 
-        let fy = remY * approach
-        remY -= fy
-        speedY += (fy - speedY) * ramp
-        carryY += speedY
-        let fx = remX * approach
-        remX -= fx
-        speedX += (fx - speedX) * ramp
-        carryX += speedX
+        integrate(rem: &remY, speed: &speedY, carry: &carryY)
+        integrate(rem: &remX, speed: &speedX, carry: &carryX)
+        let exhausted = abs(remY) + abs(speedY * Self.rise) < 1e-9
+            && abs(remX) + abs(speedX * Self.rise) < 1e-9
 
         // Under a point left: deliver it, rounded, and close the gesture.
-        if abs(owedY) < settleThreshold && abs(owedX) < settleThreshold {
+        if (abs(owedY) < settleThreshold && abs(owedX) < settleThreshold) || exhausted {
             let lastY = owedY.rounded(.toNearestOrEven), lastX = owedX.rounded(.toNearestOrEven)
             if lastY != 0 || lastX != 0 {
                 emit(motionFrame(lastY, lastX))
@@ -123,7 +125,7 @@ public struct ScrollAnimator {
             return
         }
 
-        if state == .tracking && now - lastInputTime > momentumAfter {
+        if state == .tracking && !beginPending && now - lastInputTime > momentumAfter {
             // Input paused: the rest of the glide is momentum.
             emit(Frame(dy: 0, dx: 0, scrollPhase: PhaseValue.ended, momentumPhase: 0, isMarker: true, isFinal: false))
             state = .momentum
@@ -158,6 +160,16 @@ public struct ScrollAnimator {
         dirY = 0; dirX = 0
         state = .idle
         beginPending = false
+    }
+
+    // Exact solution of rem' = -rem/decay, speed' = (rem/decay - speed)/rise.
+    // Per axis: owed = rem + speed*rise + carry. Integrate by subtracting
+    // stored distance, so changing dt cannot create or lose motion.
+    private func integrate(rem: inout Double, speed: inout Double, carry: inout Double) {
+        let stored = rem + speed * Self.rise
+        speed = speed * velocityFactor + rem * transfer
+        rem *= remainingFactor
+        carry += stored - (rem + speed * Self.rise)
     }
 
     private mutating func motionFrame(_ dy: Double, _ dx: Double) -> Frame {

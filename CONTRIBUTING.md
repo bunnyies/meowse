@@ -22,7 +22,9 @@ change that adds idle work or system-wide cost needs a very good reason.
    work. Classify events and return early. Every synthetic event costs the
    target app work, so post only visible motion and end glides promptly.
 5. **Prefer system mechanisms.** For example, Keep Awake uses a power assertion
-   with a system-enforced timeout rather than tracking time itself.
+   with a system-enforced timeout rather than tracking time itself, and freed
+   memory goes back to the system through the allocator's space-efficient
+   mode (`LSEnvironment` in `Resources/Info.plist`), not purging of our own.
 6. **Native UI.** `NSMenu` for the menu bar, built the first time it opens.
    SwiftUI only in the Settings window, which runs as its own process
    (`Meowse Settings.app` inside the bundle) and exits when the window closes,

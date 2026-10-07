@@ -41,9 +41,6 @@ final class Engine: NSObject {
     private var reportedStatus: TapStatus?
     /// The device behind the last hardware scroll since the tap was installed.
     private var device: ScrollDevice?
-    /// A trackpad or Magic Mouse has scrolled since launch. After one has,
-    /// Finder ignores the wheel's glides unless they carry trackpad phases.
-    private var touchUsed = false
     /// The glide in flight carries trackpad phases.
     private var phased = false
     /// Registry ID of the touch surface behind `device == .touch`.
@@ -106,6 +103,10 @@ final class Engine: NSObject {
             animator.decay = newConfig.decay
             syncTap()
         }
+    }
+
+    func cancelGlide() {
+        perform { [self] in endGlide() }
     }
 
     func setTrusted(_ value: Bool) {
@@ -283,12 +284,20 @@ final class Engine: NSObject {
             return Unmanaged.passUnretained(event)
         }
         // A discrete event with a gesture phase is the system's copy of a wheel
-        // tick for a coasting touch surface, not a tick itself. While glides
-        // are on, it's held back like the frames' copies.
+        // tick that ends a coasting touch surface's momentum, not a tick itself.
+        // While glides are on, it goes through without the tick's motion: the
+        // app still learns the momentum ended (Finder ignores the wheel until
+        // it does), and the glide brings the motion.
         guard ScrollDevice.isWheelTick(
             scrollPhase: event.getIntegerValueField(.scrollWheelEventScrollPhase),
             momentumPhase: event.getIntegerValueField(.scrollWheelEventMomentumPhase)
-        ) else { return config.smooth && isMomentumEcho(event, continuous: false) ? nil : Unmanaged.passUnretained(event) }
+        ) else {
+            if config.smooth && isMomentumEcho(event, continuous: false) {
+                clearAxis1(event)
+                clearAxis2(event)
+            }
+            return Unmanaged.passUnretained(event)
+        }
         if device != .wheel { noteDevice(event, continuous: false) }
 
         // The tick in lines, with the system's wheel acceleration applied.
@@ -301,18 +310,28 @@ final class Engine: NSObject {
         }
 
         let pid = pid_t(truncatingIfNeeded: event.getIntegerValueField(.eventTargetUnixProcessID))
-        let allowed = pid > 1 && !screens.isEmpty && !targets.isDock(pid)
-
-        let route = WheelRouter.route(
+        // Bypass is immediate: the glide in flight ends before this tick passes through.
+        if animator.isActive && config.unsmoothedKey.isHeld(flags: event.flags.rawValue, heldButtons: heldButtons) {
+            endGlide()
+        }
+        var route = WheelRouter.route(
             lines: dy, dx,
             flags: event.flags.rawValue,
             heldButtons: heldButtons,
             config: config,
-            smoothingAllowedForTarget: allowed
+            smoothingAllowedForTarget: true
         )
+        // The target is looked up only when it could get a glide.
+        if route.glides && (pid <= 1 || screens.isEmpty || targets.isDock(pid)) {
+            route = WheelRouter.route(lines: dy, dx, flags: event.flags.rawValue, heldButtons: heldButtons,
+                                      config: config, smoothingAllowedForTarget: false)
+        }
 
-        if route.reverseY { negateAxis1(event) }
-        if route.reverseX { negateAxis2(event) }
+        // A swallowed event's motion is rewritten by every frame, already reversed.
+        if !route.swallow {
+            if route.reverseY { negateAxis1(event) }
+            if route.reverseX { negateAxis2(event) }
+        }
         guard route.glides else { return Unmanaged.passUnretained(event) }
 
         // A swallowed event becomes the template as is; only a mixed event needs a copy.
@@ -335,7 +354,7 @@ final class Engine: NSObject {
         glideSender = event.getIntegerValueField(senderField)
 
         let wasIdle = !animator.isActive
-        if wasIdle { phased = config.trackpadPhases || touchUsed }
+        if wasIdle { phased = config.trackpadPhases }
         let now = CACurrentMediaTime()
         selectScreen(for: event.location)
         animator.input(dy: route.glideY, dx: route.glideX, now: now) { post($0) }
@@ -361,11 +380,8 @@ final class Engine: NSObject {
             scrollPhase: event.getIntegerValueField(.scrollWheelEventScrollPhase),
             momentumPhase: event.getIntegerValueField(.scrollWheelEventMomentumPhase)
         ) else { return }
-        if d == .touch {
-            touchUsed = true
-            // A gesture on a touch surface takes over from the glide.
-            if animator.isActive { endGlide() }
-        }
+        // A gesture on a touch surface takes over from the glide.
+        if d == .touch && animator.isActive { endGlide() }
         device = d
         touchSender = sender
         DispatchQueue.main.async { [weak self] in self?.onDeviceChange?(d, UInt64(bitPattern: sender)) }
@@ -384,6 +400,8 @@ final class Engine: NSObject {
     /// Display-link callback; runs only while a glide is in flight.
     @objc func tick(_ link: CADisplayLink) {
         guard animator.isActive else { stopLink(); return }
+        // A link just handed off can still deliver one callback.
+        guard activeScreen >= 0, screens[activeScreen].link === link else { return }
         var dt = link.targetTimestamp - link.timestamp
         if dt <= 0 { dt = link.duration }
         animator.step(now: CACurrentMediaTime(), dt: dt) { post($0) }

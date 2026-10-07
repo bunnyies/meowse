@@ -163,13 +163,13 @@ final class ScrollAnimatorTests: XCTestCase {
     }
 
     func testEventBudgetPerNotch() {
-        // One default notch at 120 Hz glides for 72 frames; whole-point frames
-        // need 41 events (43% fewer), each of which moves the page.
+        // One default notch at 120 Hz glides for 73 frames; whole-point frames
+        // need 42 motion events, each of which moves the page.
         var a = ScrollAnimator()
         a.input(dy: Settings().notchDistance, dx: 0, now: 0) { _ in }
         let (frames, end) = run(&a, from: 0, hz: 120)
-        XCTAssertEqual(end * 120, 72, accuracy: 0.5)
-        XCTAssertLessThanOrEqual(frames.filter { !$0.isMarker }.count, 41)
+        XCTAssertEqual(end * 120, 73, accuracy: 0.5)
+        XCTAssertLessThanOrEqual(frames.filter { !$0.isMarker }.count, 42)
     }
 
     func testTinyGlideRoundsToTheNearestPoint() {
@@ -180,6 +180,79 @@ final class ScrollAnimatorTests: XCTestCase {
         let frames = run(&a, from: 1, hz: 120).frames
         XCTAssertEqual(frames.count, 1, "only the closing marker")
         XCTAssertTrue(frames[0].isMarker && frames[0].isFinal)
+    }
+
+    func testChangingIntervalsConserveBothAxesAndFinish() {
+        let sequences: [[Double]] = [
+            [1/60, 1/120], [1/120, 1/60], [1/144, 1/60], [1/60, 1/144],
+            [1/144, 0.027, 1/60, 0.003, 0.05], [1/60, 1/60, 1/120]
+        ]
+        for intervals in sequences {
+            for extra in [0.0, 100.25] {
+                var a = ScrollAnimator()
+                var frames: [ScrollAnimator.Frame] = []
+                var t = 0.0
+                a.input(dy: 100.25, dx: -73.75, now: t) { frames.append($0) }
+                for i in 0..<1000 where a.isActive {
+                    if i == 6 { a.input(dy: extra, dx: -extra, now: t) { frames.append($0) } }
+                    let dt = i < 6 ? intervals[0] : intervals[1 + (i - 6) % (intervals.count - 1)]
+                    t += dt
+                    a.step(now: t, dt: dt) { frames.append($0) }
+                }
+                XCTAssertFalse(a.isActive, "intervals: \(intervals)")
+                XCTAssertLessThan(t, 2, "default decay should settle within 18 time constants")
+                XCTAssertEqual(frames.reduce(0) { $0 + $1.dy }, 100.25 + extra, accuracy: 0.5)
+                XCTAssertEqual(frames.reduce(0) { $0 + $1.dx }, -73.75 - extra, accuracy: 0.5)
+                XCTAssertEqual(frames.filter(\.isFinal).count, 1)
+                XCTAssertTrue(frames.last?.isFinal == true)
+            }
+        }
+    }
+
+    func testAccountingInvariantAtEveryStepIncludingEqualTimeConstants() {
+        for decay in [0.01, ScrollAnimator.rise, 0.5 / log(100), 0.65] {
+            var a = ScrollAnimator(decay: decay)
+            a.settleThreshold = 0
+            a.input(dy: 107.25, dx: -83.7, now: 0) { _ in }
+            var t = 0.0, y = 0.0, x = 0.0
+            for i in 0..<4000 where a.isActive {
+                let dt = [1/144.0, 1/60.0, 0.031, 0.003][i % 4]
+                t += dt
+                a.step(now: t, dt: dt) { y += $0.dy; x += $0.dx }
+                if a.isActive {
+                    let values = Dictionary(uniqueKeysWithValues: Mirror(reflecting: a).children.compactMap { child -> (String, Double)? in
+                        guard let name = child.label, let value = child.value as? Double else { return nil }
+                        return (name, value)
+                    })
+                    for axis in ["Y", "X"] {
+                        let stored = values["rem" + axis]! + values["speed" + axis]! * ScrollAnimator.rise + values["carry" + axis]!
+                        XCTAssertEqual(stored, values["owed" + axis]!, accuracy: 1e-10)
+                    }
+                }
+            }
+            XCTAssertFalse(a.isActive, "numerical exhaustion must finish even with a zero threshold")
+            XCTAssertEqual(y, 107.25, accuracy: 0.5)
+            XCTAssertEqual(x, -83.7, accuracy: 0.5)
+        }
+    }
+
+    func testVariableTimingReversalCancelsOnlyReversedAxis() {
+        var a = ScrollAnimator()
+        a.input(dy: 100, dx: 70, now: 0) { _ in }
+        var x = 0.0, reversedY = 0.0, t = 0.0
+        for dt in [1/120.0, 1/60.0, 1/144.0] {
+            t += dt
+            a.step(now: t, dt: dt) { x += $0.dx }
+        }
+        a.input(dy: -40.25, dx: 0, now: t) { _ in }
+        for i in 0..<300 where a.isActive {
+            let dt = i % 2 == 0 ? 1/60.0 : 1/144.0
+            t += dt
+            a.step(now: t, dt: dt) { x += $0.dx; reversedY += $0.dy }
+        }
+        XCTAssertFalse(a.isActive)
+        XCTAssertEqual(reversedY, -40.25, accuracy: 0.5)
+        XCTAssertEqual(x, 70, accuracy: 0.5)
     }
 
     func testNotchDistanceGrowsWithTheSquareRootOfLines() {

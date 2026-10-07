@@ -4,7 +4,7 @@ import ServiceManagement
 import MeowseCore
 
 /// Main-thread owner of `Settings`. Changes apply immediately; writes to disk
-/// are coalesced so a slider drag produces one write, not one per tick.
+/// are throttled to at most one per half second while edits continue.
 final class SettingsStore: ObservableObject {
 
     static let shared = SettingsStore()

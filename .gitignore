@@ -3,3 +3,5 @@
 .swiftpm/
 build/
 dist/
+optimizer.md
+VALIDATION.md

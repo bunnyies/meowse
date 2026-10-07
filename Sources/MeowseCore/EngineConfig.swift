@@ -39,10 +39,16 @@ public struct EngineConfig: Equatable, Sendable {
         unsmoothedKey = s.unsmoothedKey
         fasterFactor = max(1, s.fasterFactor)
         stopOnClick = s.stopOnClick
+        let effectiveHotkeys: [Hotkey]
+        if smooth {
+            effectiveHotkeys = [fasterFactor > 1 ? s.fasterKey : .none, s.sidewaysKey, s.unsmoothedKey]
+        } else {
+            effectiveHotkeys = reverseVertical != reverseHorizontal ? [s.sidewaysKey] : []
+        }
         eventMask = EngineConfig.mask(
             smooth: smooth,
             reverse: reverseVertical || reverseHorizontal,
-            hotkeys: [s.fasterKey, s.sidewaysKey, s.unsmoothedKey]
+            hotkeys: effectiveHotkeys
         )
     }
 
