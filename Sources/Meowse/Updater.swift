@@ -32,6 +32,11 @@ final class Updater: ObservableObject {
     private static let lastCheckedKey = "updates.lastChecked"
     private static let day: TimeInterval = 24 * 3600
 
+    /// A release archive is a few megabytes; these bound how much a malformed
+    /// or malicious one can touch disk while it's checked and unpacked.
+    private static let maxArchiveSize = 100 * 1024 * 1024
+    private static let maxUnpackedSize = 300 * 1024 * 1024
+
     private init() {
         let info = Bundle.main.infoDictionary ?? [:]
         currentVersion = Version(info["CFBundleShortVersionString"] as? String ?? "") ?? Version("0")!
@@ -187,11 +192,17 @@ final class Updater: ObservableObject {
 
     /// Off the main thread: checksum, unpack, and verify the new app.
     static func prepare(zip: URL, digest: String?, in workDir: URL, over current: Version) throws -> URL {
-        if let digest, digest.hasPrefix("sha256:") {
-            let data = try Data(contentsOf: zip, options: .mappedIfSafe)
-            let hex = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
-            guard "sha256:" + hex == digest.lowercased() else { throw UpdateError.checksumMismatch }
-        }
+        let zipSize = (try? zip.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0
+        guard zipSize <= maxArchiveSize else { throw UpdateError.invalidArchive }
+
+        // GitHub publishes a digest for every asset; without one the download
+        // can't be tied to the release that was signed off on.
+        guard let digest, digest.hasPrefix("sha256:") else { throw UpdateError.checksumMissing }
+        let data = try Data(contentsOf: zip, options: .mappedIfSafe)
+        let hex = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+        guard "sha256:" + hex == digest.lowercased() else { throw UpdateError.checksumMismatch }
+
+        try refuseEscapingEntries(in: zip)
 
         let unpacked = workDir.appendingPathComponent("unpacked", isDirectory: true)
         let ditto = Process()
@@ -199,14 +210,8 @@ final class Updater: ObservableObject {
         ditto.arguments = ["-x", "-k", zip.path, unpacked.path]
         try ditto.run()
         ditto.waitUntilExit()
-        let newApp = unpacked.appendingPathComponent("Meowse.app")
-        var isDirectory: ObjCBool = false
-        guard ditto.terminationStatus == 0,
-              FileManager.default.fileExists(atPath: newApp.path, isDirectory: &isDirectory), isDirectory.boolValue,
-              // A link would install a pointer to some other bundle, which could change after it's verified.
-              (try? newApp.resourceValues(forKeys: [.isSymbolicLinkKey]))?.isSymbolicLink == false else {
-            throw UpdateError.invalidArchive
-        }
+        guard ditto.terminationStatus == 0 else { throw UpdateError.invalidArchive }
+        let newApp = try validateUnpackedTree(at: unpacked)
 
         let info = NSDictionary(contentsOf: newApp.appendingPathComponent("Contents/Info.plist")) as? [String: Any]
         guard info?["CFBundleIdentifier"] as? String == Bundle.main.bundleIdentifier,
@@ -215,6 +220,53 @@ final class Updater: ObservableObject {
             throw UpdateError.invalidArchive
         }
         try verifySignature(of: newApp)
+        return newApp
+    }
+
+    /// Refuses archive entries that are absolute or contain "..", which `ditto`
+    /// would otherwise write outside the unpack directory.
+    private static func refuseEscapingEntries(in zip: URL) throws {
+        let unzip = Process()
+        unzip.executableURL = URL(fileURLWithPath: "/usr/bin/unzip")
+        unzip.arguments = ["-Z1", zip.path]
+        let output = Pipe()
+        unzip.standardOutput = output
+        unzip.standardError = FileHandle.nullDevice
+        try unzip.run()
+        let data = output.fileHandleForReading.readDataToEndOfFile()
+        unzip.waitUntilExit()
+        guard unzip.terminationStatus == 0 else { throw UpdateError.invalidArchive }
+        for entry in String(decoding: data, as: UTF8.self).split(separator: "\n") {
+            let name = String(entry)
+            guard !name.isEmpty else { continue }
+            if name.hasPrefix("/") || name.components(separatedBy: "/").contains("..") {
+                throw UpdateError.invalidArchive
+            }
+        }
+    }
+
+    /// The unpacked tree must be a plain app bundle: no symlinks anywhere, a
+    /// bounded total size, and a real `Meowse.app` directory at its root.
+    private static func validateUnpackedTree(at root: URL) throws -> URL {
+        let newApp = root.appendingPathComponent("Meowse.app")
+        let fm = FileManager.default
+        let keys: Set<URLResourceKey> = [.isSymbolicLinkKey, .isDirectoryKey, .fileSizeKey]
+        guard let enumerator = fm.enumerator(at: root, includingPropertiesForKeys: Array(keys)) else {
+            throw UpdateError.invalidArchive
+        }
+        var total = 0
+        for case let url as URL in enumerator {
+            let values = try url.resourceValues(forKeys: keys)
+            guard values.isSymbolicLink != true else { throw UpdateError.invalidArchive }
+            if values.isDirectory != true {
+                total += values.fileSize ?? 0
+                guard total <= maxUnpackedSize else { throw UpdateError.invalidArchive }
+            }
+        }
+        var isDirectory: ObjCBool = false
+        guard fm.fileExists(atPath: newApp.path, isDirectory: &isDirectory), isDirectory.boolValue else {
+            throw UpdateError.invalidArchive
+        }
         return newApp
     }
 
@@ -283,7 +335,7 @@ final class Updater: ObservableObject {
 
 private enum UpdateError: Error {
     case offline, noReleases, rateLimited, server(Int), malformed
-    case checksumMismatch, invalidArchive, unsignedBuild, badSignature
+    case checksumMismatch, checksumMissing, invalidArchive, unsignedBuild, badSignature
     case notWritable(URL)
 
     var message: String {
@@ -294,6 +346,7 @@ private enum UpdateError: Error {
         case .server(let code): return "GitHub returned an error (\(code))."
         case .malformed: return "The release information couldn’t be read."
         case .checksumMismatch: return "The download was corrupted. Try again."
+        case .checksumMissing: return "The update has no published checksum, so it wasn’t installed."
         case .invalidArchive: return "The update package isn’t a valid Meowse release."
         case .unsignedBuild: return "This build isn’t signed, so it can’t verify updates. Install the new version manually."
         case .badSignature: return "The update isn’t signed by the Meowse developer, so it wasn’t installed."
