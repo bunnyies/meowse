@@ -53,7 +53,8 @@ final class Updater: ObservableObject {
         scheduler = nil
         guard enabled, repository != nil else { return }
 
-        let s = NSBackgroundActivityScheduler(identifier: "app.meowse.Meowse.update-check")
+        // Per bundle, so a dev build keeps its own schedule.
+        let s = NSBackgroundActivityScheduler(identifier: "\(Bundle.main.bundleIdentifier ?? "app.meowse.Meowse").update-check")
         s.repeats = true
         s.interval = Self.day
         s.tolerance = Self.day / 4

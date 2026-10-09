@@ -2,6 +2,7 @@
 # Build Meowse.app (release, universal) into ./build.
 #
 #   scripts/build.sh                      # signs with your Apple Development identity if present
+#   scripts/build.sh --dev                # "Meowse dev.app", beside an installed Meowse
 #   SIGN_IDENTITY="-" scripts/build.sh    # force ad-hoc
 #   TIMESTAMP=1 scripts/build.sh          # add Apple's secure timestamp (needs network; releases)
 #
@@ -12,10 +13,23 @@
 # Without a secure timestamp a signature is only valid while its certificate
 # is, so the in-app updater would refuse a release once the certificate that
 # signed it expires.
+#
+# A dev build has its own bundle ID, settings and Accessibility entry and never
+# updates itself. Pause scrolling in one copy while both run.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-APP=build/Meowse.app
+DEV=0
+for arg in "$@"; do
+  case $arg in
+    --dev) DEV=1 ;;
+    *) echo "unknown option: $arg"; exit 2 ;;
+  esac
+done
+NAME=Meowse BUNDLE_ID=app.meowse.Meowse
+(( DEV )) && NAME="Meowse dev" BUNDLE_ID=app.meowse.Meowse.dev
+
+APP="build/$NAME.app"
 if [[ -z "${SIGN_IDENTITY:-}" ]]; then
   SIGN_IDENTITY=$(security find-identity -v -p codesigning 2>/dev/null \
     | awk -F'"' '/Apple Development/ { print $2; exit }')
@@ -28,10 +42,19 @@ BIN="$(swift build -c release --arch arm64 --arch x86_64 --show-bin-path)"
 
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp "$BIN/Meowse" "$APP/Contents/MacOS/Meowse"
+cp "$BIN/Meowse" "$APP/Contents/MacOS/$NAME"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
-strip -x "$APP/Contents/MacOS/Meowse"
+strip -x "$APP/Contents/MacOS/$NAME"
+if (( DEV )); then
+  /usr/libexec/PlistBuddy \
+    -c "Set :CFBundleIdentifier $BUNDLE_ID" \
+    -c "Set :CFBundleExecutable '$NAME'" \
+    -c "Set :CFBundleName '$NAME'" \
+    -c "Set :CFBundleDisplayName '$NAME'" \
+    -c "Delete :MeowseUpdateRepository" \
+    "$APP/Contents/Info.plist"
+fi
 
 # The Settings window is an app of its own inside this one, so everything it
 # loads goes back to the system when it closes. Its Info.plist is Meowse's,
@@ -49,7 +72,7 @@ cp "$ICONS"/all.iconset/icon_{16x16,32x32}{,@2x}.png "$ICONS/small.iconset/"
 iconutil -c icns "$ICONS/small.iconset" -o "$HELPER/Contents/Resources/AppIcon.icns"
 rm -rf "$ICONS"
 /usr/libexec/PlistBuddy \
-  -c "Set :CFBundleIdentifier app.meowse.Meowse.Settings" \
+  -c "Set :CFBundleIdentifier $BUNDLE_ID.Settings" \
   -c "Set :CFBundleExecutable 'Meowse Settings'" \
   -c "Set :CFBundleName 'Meowse Settings'" \
   -c "Set :CFBundleDisplayName 'Meowse Settings'" \

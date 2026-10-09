@@ -28,8 +28,10 @@ change that adds idle work or system-wide cost needs a very good reason.
 6. **Native UI.** `NSMenu` for the menu bar, built the first time it opens.
    SwiftUI only in the Settings window, which runs as its own process
    (`Meowse Settings.app` inside the bundle) and exits when the window closes,
-   so what SwiftUI loads never stays in Meowse. Standard controls and SF
-   Symbols, no web views, no third-party dependencies.
+   so what SwiftUI loads never stays in Meowse. (On macOS 27, `NSMenu`
+   itself loads some SwiftUI the first time a menu opens: about 3 MB for even
+   a plain menu.) Standard controls and SF Symbols, no web views, no
+   third-party dependencies.
 7. **Lazy UI state.** Menu items refresh in `menuNeedsUpdate`. View code reads
    cached values and never makes system calls. Writes to disk are coalesced.
 8. **Logic in `MeowseCore`.** Anything that can be pure lives there, without
@@ -40,13 +42,16 @@ change that adds idle work or system-wide cost needs a very good reason.
 ```bash
 swift test               # unit tests
 scripts/build.sh         # release build → build/Meowse.app
+scripts/build.sh --dev   # "Meowse dev.app", runs beside an installed Meowse
 scripts/install.sh       # build and move into /Applications, then relaunch
-scripts/measure.sh       # CPU, idle wakeups and memory of the running app
+scripts/measure.sh       # CPU, idle wakeups and memory of the running app (--dev: the dev build)
 scripts/release.sh 1.2.0 # version bump, build and dist/Meowse.zip
 ```
 
 `build.sh` signs with the first Apple Development identity in your keychain,
-which keeps the Accessibility permission across rebuilds. Releases must be
+which keeps the Accessibility permission across rebuilds. A dev build has its
+own bundle ID, settings and Accessibility entry and never updates itself; pause
+scrolling in one copy while both run, or each smooths the same wheel. Releases must be
 signed by the same team as installed copies, or the in-app updater rejects
 them. `release.sh` signs with your Developer ID Application certificate and
 has Apple notarize the archive, so Gatekeeper opens the download; its header

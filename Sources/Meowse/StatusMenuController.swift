@@ -249,6 +249,9 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
     /// A mouse with cat ears, from the website's 24-unit outline scaled to the
     /// 16 pt height of a menu bar symbol. Both variants share one size so the
     /// glyph stays put when the badge comes and goes.
+    ///
+    /// Drawn once into 1x and 2x bitmaps. A drawing handler would be redrawn
+    /// and cached again for every display, appearance and dimmed state.
     static func makeIcon(badged: Bool) -> NSImage {
         let glyph = NSBezierPath(roundedRect: NSRect(x: 6.5, y: 4.5, width: 11, height: 16), xRadius: 5.5, yRadius: 5.5)
         for ear in [[(8.5, 5.5), (7.0, 2.5), (10.0, 4.5)], [(15.5, 5.5), (17.0, 2.5), (14.0, 4.5)]] {
@@ -264,18 +267,34 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         glyph.lineCapStyle = .round
         glyph.lineJoinStyle = .round
 
-        let image = NSImage(size: NSSize(width: 20, height: 18), flipped: true) { _ in
+        let size = NSSize(width: 20, height: 18)
+        let image = NSImage(size: size)
+        for scale in 1...2 {
+            guard let rep = NSBitmapImageRep(
+                bitmapDataPlanes: nil, pixelsWide: Int(size.width) * scale, pixelsHigh: Int(size.height) * scale,
+                bitsPerSample: 8, samplesPerPixel: 2, hasAlpha: true, isPlanar: false,
+                colorSpaceName: .deviceWhite, bytesPerRow: 0, bitsPerPixel: 0
+            ), let context = NSGraphicsContext(bitmapImageRep: rep) else { continue }
+            rep.size = size
+            NSGraphicsContext.saveGraphicsState()
+            NSGraphicsContext.current = context
+            // Top-left origin, in points.
+            let flip = NSAffineTransform()
+            flip.scaleX(by: CGFloat(scale), yBy: -CGFloat(scale))
+            flip.translateX(by: 0, yBy: -size.height)
+            flip.concat()
             NSColor.black.set()
             glyph.stroke()
             if badged {
                 let dot = NSRect(x: 15.4, y: 0.4, width: 4.4, height: 4.4)
                 // Clear a ring around the dot so it stands apart from the ear.
-                NSGraphicsContext.current?.compositingOperation = .clear
+                context.compositingOperation = .clear
                 NSBezierPath(ovalIn: dot.insetBy(dx: -1.1, dy: -1.1)).fill()
-                NSGraphicsContext.current?.compositingOperation = .sourceOver
+                context.compositingOperation = .sourceOver
                 NSBezierPath(ovalIn: dot).fill()
             }
-            return true
+            NSGraphicsContext.restoreGraphicsState()
+            image.addRepresentation(rep)
         }
         image.isTemplate = true
         image.accessibilityDescription = badged ? "Meowse (keeping awake)" : "Meowse"

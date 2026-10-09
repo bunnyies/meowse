@@ -47,13 +47,13 @@ final class SettingsHost {
         let input = Pipe(), output = Pipe()
         p.standardInput = input
         p.standardOutput = output
-        output.fileHandleForReading.readabilityHandler = { [weak self] handle in
+        // A window that just closed mustn't reach or end one opened after it.
+        output.fileHandleForReading.readabilityHandler = { [weak self, weak p] handle in
             let data = handle.availableData
             if data.isEmpty { handle.readabilityHandler = nil }
-            DispatchQueue.main.async { self?.received(data) }
+            DispatchQueue.main.async { if let self, self.process === p { self.received(data) } }
         }
         p.terminationHandler = { [weak self] exited in
-            // A window closed just before Settings reopened mustn't end the new one.
             DispatchQueue.main.async { if self?.process === exited { self?.ended() } }
         }
         do {
