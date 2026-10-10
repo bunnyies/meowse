@@ -25,11 +25,17 @@ change that adds idle work or system-wide cost needs a very good reason.
    with a system-enforced timeout rather than tracking time itself, and freed
    memory goes back to the system through the allocator's space-efficient
    mode (`LSEnvironment` in `Resources/Info.plist`), not purging of our own.
+   The one thing a running app can't return is what macOS keeps in it after
+   display changes (colour tables, window contexts, freed pages), so once
+   Meowse has doubled its launch memory it starts over the next time the
+   display sleeps (`Refresh` in `MeowseCore`).
 6. **Native UI.** `NSMenu` for the menu bar, built the first time it opens.
    SwiftUI only in the Settings window, which runs as its own process
    (`Meowse Settings.app` inside the bundle) and exits when the window closes,
-   so what SwiftUI loads never stays in Meowse. Standard controls and SF
-   Symbols, no web views, no third-party dependencies.
+   so what SwiftUI loads never stays in Meowse. (On macOS 27, `NSMenu`
+   itself loads some SwiftUI the first time a menu opens: about 3 MB for even
+   a plain menu.) Standard controls and SF Symbols, no web views, no
+   third-party dependencies.
 7. **Lazy UI state.** Menu items refresh in `menuNeedsUpdate`. View code reads
    cached values and never makes system calls. Writes to disk are coalesced.
 8. **Logic in `MeowseCore`.** Anything that can be pure lives there, without

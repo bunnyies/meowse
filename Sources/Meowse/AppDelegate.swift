@@ -16,6 +16,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var trusted = false
     /// Exists only while Accessibility access is missing.
     private var trustWatch: DispatchSourceTimer?
+    /// Memory in use once launch has settled; 0 until then.
+    private var launchFootprint = 0
+    private let launchUptime = ProcessInfo.processInfo.systemUptime
+    /// Pending only while the display is asleep.
+    private var refresh: DispatchWorkItem?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // First, so a copy that's moving never installs its tap or asks for access.
@@ -46,6 +51,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         awake.observeSystem()
         updater.setAutomaticChecks(store.settings.checkForUpdates)
         refreshTrust(prompt: true)
+        // One-shot: what later growth is measured against.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 10) { [weak self] in
+            self?.launchFootprint = Self.footprint()
+        }
     }
 
     /// Opening the app again (e.g. with the menu bar icon hidden) shows Settings.
@@ -96,7 +105,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         for name in [NSWorkspace.willSleepNotification, NSWorkspace.sessionDidResignActiveNotification] {
             ws.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
                 self?.engine.cancelGlide()
+                self?.cancelRefresh()
             }
+        }
+
+        // With the display asleep nobody is scrolling or looking at the menu bar.
+        ws.addObserver(forName: NSWorkspace.screensDidSleepNotification, object: nil, queue: .main) { [weak self] _ in
+            self?.scheduleRefresh()
+        }
+        ws.addObserver(forName: NSWorkspace.screensDidWakeNotification, object: nil, queue: .main) { [weak self] _ in
+            self?.cancelRefresh()
         }
 
         NotificationCenter.default.addObserver(
@@ -153,6 +171,44 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return Engine.ScreenLink(bounds: CGDisplayBounds(id), link: link)
         }
         engine.setScreens(links)
+    }
+
+    // MARK: - Memory refresh
+
+    /// Display changes leave memory in every menu bar app that the system
+    /// never takes back while the app runs (see `Refresh`). Once Meowse has
+    /// grown enough, it starts over while the display is asleep.
+    private func scheduleRefresh() {
+        cancelRefresh()
+        let work = DispatchWorkItem { [weak self] in self?.refreshIfDue() }
+        refresh = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + Refresh.settleDelay, execute: work)
+    }
+
+    private func cancelRefresh() {
+        refresh?.cancel()
+        refresh = nil
+    }
+
+    private func refreshIfDue() {
+        refresh = nil
+        let busy = awake.isAwake || awake.isWiggling || settingsHost.isOpen || updater.state == .installing
+        guard Refresh.isDue(footprint: Self.footprint(), atLaunch: launchFootprint,
+                            uptime: ProcessInfo.processInfo.systemUptime - launchUptime, busy: busy) else { return }
+        NSLog("Meowse: restarting to return memory the system kept after display changes")
+        NSApp.relaunch(Bundle.main.bundleURL)
+    }
+
+    /// What Activity Monitor shows as Memory, in bytes.
+    private static func footprint() -> Int {
+        var info = task_vm_info_data_t()
+        var count = mach_msg_type_number_t(MemoryLayout<task_vm_info_data_t>.size / MemoryLayout<natural_t>.size)
+        let result = withUnsafeMutablePointer(to: &info) {
+            $0.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
+                task_info(mach_task_self_, task_flavor_t(TASK_VM_INFO), $0, &count)
+            }
+        }
+        return result == KERN_SUCCESS ? Int(info.phys_footprint) : 0
     }
 
     // MARK: - Settings window

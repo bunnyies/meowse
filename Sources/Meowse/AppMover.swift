@@ -96,13 +96,19 @@ enum AppMover {
 
 extension NSApplication {
     /// Opens `app` once this process has exited (the single-instance guard
-    /// would refuse it earlier), then quits.
+    /// would refuse it earlier), then quits. Stays running if that can't be set up.
     func relaunch(_ app: URL) {
         let relauncher = Process()
         relauncher.executableURL = URL(fileURLWithPath: "/bin/sh")
-        relauncher.arguments = ["-c", "while /bin/kill -0 \(getpid()) 2>/dev/null; do /bin/sleep 0.2; done; /usr/bin/open \"$0\"",
+        relauncher.arguments = ["-c", "while /bin/kill -0 \(getpid()) 2>/dev/null; do /bin/sleep 0.2; done; "
+                                    + "/usr/bin/open \"$0\" || { /bin/sleep 2; /usr/bin/open \"$0\"; }",
                                 app.path]
-        try? relauncher.run()
+        do {
+            try relauncher.run()
+        } catch {
+            NSLog("Meowse: couldn't relaunch: \(error)")
+            return
+        }
         terminate(nil)
     }
 }
